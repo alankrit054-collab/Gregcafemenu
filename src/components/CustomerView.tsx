@@ -15,16 +15,36 @@ import {
 } from 'lucide-react';
 import { MenuItem, CartItem, Order, CategoryKey } from '../types';
 import { CATEGORIES } from '../initialMenu';
-import { placeOrder, subscribeToOrder } from '../dbService';
+import { placeOrder, subscribeToOrder, subscribeCafeConfig } from '../dbService';
 import { motion, AnimatePresence } from 'motion/react';
+
+const getDietType = (item: MenuItem): 'VEG' | 'NON-VEG' => {
+  if (item.dietType) return item.dietType;
+  const nameLower = item.name.toLowerCase();
+  const descLower = item.description.toLowerCase();
+  if (
+    nameLower.includes('chicken') || 
+    nameLower.includes('bacon') || 
+    nameLower.includes('egg') || 
+    nameLower.includes('meat') ||
+    descLower.includes('chicken') || 
+    descLower.includes('bacon') || 
+    descLower.includes('egg') || 
+    descLower.includes('meat')
+  ) {
+    return 'NON-VEG';
+  }
+  return 'VEG';
+};
 
 interface CustomerViewProps {
   menuItems: MenuItem[];
   tableNumber: string;
   onOpenAdminPin: () => void;
+  onSwitchToChef: () => void;
 }
 
-export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumber, onOpenAdminPin }) => {
+export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumber, onOpenAdminPin, onSwitchToChef }) => {
   // Navigation & filtering state
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +56,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
   
   // Placed Order state for live tracking
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [isClosed, setIsClosed] = useState(false);
 
   // Live order listener
   useEffect(() => {
@@ -50,6 +71,16 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
 
     return () => unsubscribe();
   }, [activeOrder?.id]);
+
+  // Live cafe configuration listener
+  useEffect(() => {
+    const unsubscribe = subscribeCafeConfig((config) => {
+      if (config) {
+        setIsClosed(config.is_closed);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Calculate cart metrics
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -111,6 +142,66 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
     }
   };
 
+  if (isClosed) {
+    return (
+      <div className="bg-[#FEF6F6] min-h-[90vh] text-[#080504] font-sans flex flex-col justify-between p-6">
+        <div />
+
+        {/* Center-aligned closed splash page card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="max-w-md w-full mx-auto bg-[#ECD8D6]/35 border border-[#ECD8D6] rounded-3xl p-8 text-center shadow-md flex flex-col items-center"
+        >
+          <div className="w-16 h-16 rounded-full bg-[#B13818]/10 border border-[#B13818]/35 flex items-center justify-center text-[#B13818] mb-6">
+            <Clock className="w-8 h-8 stroke-[2px] animate-pulse" />
+          </div>
+
+          <h1 className="text-3xl font-serif font-bold text-[#B13818] tracking-tight mb-3">
+            Greg's Cafe
+          </h1>
+
+          <p className="text-sm text-[#675A58] font-medium leading-relaxed mb-2">
+            Greg's Cafe is currently closed. We look forward to serving you during our operational hours!
+          </p>
+
+          <div className="w-12 h-[1px] bg-[#B13818]/30 my-4" />
+
+          <p className="text-[10px] text-[#675A58]/70 uppercase tracking-widest font-mono">
+            OPERATIONAL CLOSED STATUS
+          </p>
+        </motion.div>
+
+        {/* Secret portal access point for admins and chefs */}
+        <footer className="max-w-3xl mx-auto px-4 mt-16 text-center">
+          <p className="text-xs text-[#675A58] font-serif italic">
+            Greg's Cafe • Fresh Brews & Delightful Savories
+          </p>
+          <p className="text-[10px] text-[#675A58]/50 mt-1 font-mono tracking-wider">
+            EST. 2026 • ALL RIGHTS RESERVED
+          </p>
+          <div className="mt-4 flex justify-center items-center gap-2 text-[9px] text-[#675A58]/35 font-mono tracking-wider select-none">
+            <span>SYS_V4.2</span>
+            <span>•</span>
+            <button
+              onClick={onSwitchToChef}
+              className="hover:text-[#675A58]/70 transition-colors cursor-pointer"
+            >
+              SYS_OPS
+            </button>
+            <span>•</span>
+            <button
+              onClick={onOpenAdminPin}
+              className="hover:text-[#675A58]/70 transition-colors cursor-pointer"
+            >
+              SYS_MGMT
+            </button>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#FEF6F6] min-h-screen text-[#080504] font-sans pb-32">
       {/* Hero Header Section */}
@@ -141,13 +232,25 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 bg-[#080504] text-[#FEF6F6] p-5 rounded-2xl shadow-xl border border-[#D97C7A]/30 relative overflow-hidden"
+            className={`mb-6 p-5 rounded-2xl shadow-xl relative overflow-hidden border ${
+              activeOrder.status === 'rejected'
+                ? 'bg-red-950/20 text-[#FEF6F6] border-red-500/50'
+                : activeOrder.status === 'pending_approval'
+                ? 'bg-[#15100E] text-[#FEF6F6] border-amber-500/40'
+                : 'bg-[#080504] text-[#FEF6F6] border-[#D97C7A]/30'
+            }`}
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#D97C7A]/10 to-transparent rounded-bl-full pointer-events-none" />
             
             <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-xs text-[#FDB2B2] font-semibold uppercase tracking-wider">Live Active Order</span>
+                <span className="text-xs text-[#FDB2B2] font-semibold uppercase tracking-wider">
+                  {activeOrder.status === 'rejected'
+                    ? 'Order Rejected'
+                    : activeOrder.status === 'pending_approval'
+                    ? 'Verification Pending'
+                    : 'Live Active Order'}
+                </span>
                 <h3 className="text-lg font-serif font-bold text-white mt-0.5">
                   Token #{activeOrder.tokenNumber} — Table {activeOrder.tableNumber}
                 </h3>
@@ -161,64 +264,82 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
               </button>
             </div>
 
-            {/* Stepper Status Bar */}
-            <div className="mt-4 grid grid-cols-3 gap-2 relative">
-              <div className="absolute top-4 left-[16.6%] right-[16.6%] h-0.5 bg-[#675A58]/50 z-0" />
-              
-              {/* Step 1: Received */}
-              <div className="flex flex-col items-center z-10 text-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
-                  activeOrder.status === 'Received' || activeOrder.status === 'Baking' || activeOrder.status === 'Completed'
-                    ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
-                    : 'bg-[#080504] text-[#675A58] border-[#675A58]'
-                }`}>
-                  {activeOrder.status === 'Baking' || activeOrder.status === 'Completed' ? <Check className="w-4 h-4 stroke-[3px]" /> : '1'}
+            {activeOrder.status === 'rejected' ? (
+              <div className="mt-4 flex flex-col items-center justify-center py-4 bg-red-950/30 border border-red-500/20 rounded-xl">
+                <AlertCircle className="w-8 h-8 text-red-400 animate-bounce mb-2" />
+                <span className="text-sm font-bold text-red-400">Order declined by host</span>
+                <span className="text-[11px] text-[#675A58] mt-1">Please consult with the restaurant staff or place a new order.</span>
+              </div>
+            ) : activeOrder.status === 'pending_approval' ? (
+              <div className="mt-4 flex flex-col items-center justify-center py-4 bg-amber-950/10 border border-amber-500/20 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+                  <span className="text-sm font-bold text-amber-400 animate-pulse">Waiting for host to confirm table order...</span>
                 </div>
-                <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
-                  activeOrder.status === 'Received' ? 'text-[#FDB2B2]' : 'text-[#675A58]'
-                }`}>Received</span>
+                <span className="text-[11px] text-[#675A58]">Your order will be routed to the kitchen as soon as it is approved.</span>
               </div>
+            ) : (
+              <>
+                {/* Stepper Status Bar */}
+                <div className="mt-4 grid grid-cols-3 gap-2 relative">
+                  <div className="absolute top-4 left-[16.6%] right-[16.6%] h-0.5 bg-[#675A58]/50 z-0" />
+                  
+                  {/* Step 1: Received */}
+                  <div className="flex flex-col items-center z-10 text-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
+                      activeOrder.status === 'Received' || activeOrder.status === 'received' || activeOrder.status === 'Baking' || activeOrder.status === 'baking' || activeOrder.status === 'Completed' || activeOrder.status === 'completed'
+                        ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
+                        : 'bg-[#080504] text-[#675A58] border-[#675A58]'
+                    }`}>
+                      {activeOrder.status === 'Baking' || activeOrder.status === 'baking' || activeOrder.status === 'Completed' || activeOrder.status === 'completed' ? <Check className="w-4 h-4 stroke-[3px]" /> : '1'}
+                    </div>
+                    <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
+                      activeOrder.status === 'Received' || activeOrder.status === 'received' ? 'text-[#FDB2B2]' : 'text-[#675A58]'
+                    }`}>Received</span>
+                  </div>
 
-              {/* Step 2: Baking */}
-              <div className="flex flex-col items-center z-10 text-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
-                  activeOrder.status === 'Baking' || activeOrder.status === 'Completed'
-                    ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
-                    : 'bg-[#080504] text-[#675A58] border-[#675A58]'
-                }`}>
-                  {activeOrder.status === 'Completed' ? <Check className="w-4 h-4 stroke-[3px]" /> : '2'}
+                  {/* Step 2: Baking */}
+                  <div className="flex flex-col items-center z-10 text-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
+                      activeOrder.status === 'Baking' || activeOrder.status === 'baking' || activeOrder.status === 'Completed' || activeOrder.status === 'completed'
+                        ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
+                        : 'bg-[#080504] text-[#675A58] border-[#675A58]'
+                    }`}>
+                      {activeOrder.status === 'Completed' || activeOrder.status === 'completed' ? <Check className="w-4 h-4 stroke-[3px]" /> : '2'}
+                    </div>
+                    <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
+                      activeOrder.status === 'Baking' || activeOrder.status === 'baking' ? 'text-[#FDB2B2] animate-pulse' : 'text-[#675A58]'
+                    }`}>Baking</span>
+                  </div>
+
+                  {/* Step 3: Completed */}
+                  <div className="flex flex-col items-center z-10 text-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
+                      activeOrder.status === 'Completed' || activeOrder.status === 'completed'
+                        ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
+                        : 'bg-[#080504] text-[#675A58] border-[#675A58]'
+                    }`}>
+                      3
+                    </div>
+                    <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
+                      activeOrder.status === 'Completed' || activeOrder.status === 'completed' ? 'text-green-400 font-bold' : 'text-[#675A58]'
+                    }`}>Ready!</span>
+                  </div>
                 </div>
-                <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
-                  activeOrder.status === 'Baking' ? 'text-[#FDB2B2] animate-pulse' : 'text-[#675A58]'
-                }`}>Baking</span>
-              </div>
 
-              {/* Step 3: Completed */}
-              <div className="flex flex-col items-center z-10 text-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs font-bold transition-all duration-300 ${
-                  activeOrder.status === 'Completed'
-                    ? 'bg-[#D97C7A] text-[#080504] border-[#D97C7A] scale-110 shadow-[0_0_10px_rgba(217,124,122,0.4)]'
-                    : 'bg-[#080504] text-[#675A58] border-[#675A58]'
-                }`}>
-                  3
+                <div className="mt-5 pt-3 border-t border-[#675A58]/30 flex justify-between items-center text-xs text-[#675A58]">
+                  <div className="flex items-center gap-1 text-[#FDB2B2]">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Live status synced via Firebase</span>
+                  </div>
+                  <div>
+                    {(activeOrder.status === 'Received' || activeOrder.status === 'received') && 'Chef is reviewing your order...'}
+                    {(activeOrder.status === 'Baking' || activeOrder.status === 'baking') && 'Chef is preparing your delicacies!'}
+                    {(activeOrder.status === 'Completed' || activeOrder.status === 'completed') && 'Pickup your order from the counter!'}
+                  </div>
                 </div>
-                <span className={`text-[11px] font-semibold mt-1.5 transition-colors ${
-                  activeOrder.status === 'Completed' ? 'text-green-400 font-bold' : 'text-[#675A58]'
-                }`}>Ready!</span>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-[#675A58]/30 flex justify-between items-center text-xs text-[#675A58]">
-              <div className="flex items-center gap-1 text-[#FDB2B2]">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Live status synced via Firebase</span>
-              </div>
-              <div>
-                {activeOrder.status === 'Received' && 'Chef is reviewing your order...'}
-                {activeOrder.status === 'Baking' && 'Chef is preparing your delicacies!'}
-                {activeOrder.status === 'Completed' && 'Pickup your order from the counter!'}
-              </div>
-            </div>
+              </>
+            )}
           </motion.div>
         )}
 
@@ -295,8 +416,29 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
                     )}
                   </div>
 
-                  {/* Text Details */}
-                  <div className="flex-grow min-w-0 pr-4">
+                  {/* Text Details with Grayscale/Opacity for Sold Out Items */}
+                  <div className={`flex-grow min-w-0 pr-4 transition-all duration-300 ${
+                    !item.available ? 'opacity-45 select-none pointer-events-none filter grayscale' : ''
+                  }`}>
+                    {/* Diet Tag Section (Explicitly separated and using standard containers) */}
+                    <div className="flex items-center gap-2 mb-1">
+                      {getDietType(item) === 'VEG' ? (
+                        <div className="inline-flex items-center gap-1.5" title="Vegetarian">
+                          <span className="w-3.5 h-3.5 border border-green-600 flex items-center justify-center p-0.5 rounded bg-white">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+                          </span>
+                          <span className="text-[10px] font-bold text-green-700 uppercase tracking-wider font-mono">VEG</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5" title="Non-Vegetarian">
+                          <span className="w-3.5 h-3.5 border border-amber-800 flex items-center justify-center p-0.5 rounded bg-white">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-800" />
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider font-mono">NON-VEG</span>
+                        </div>
+                      )}
+                    </div>
+
                     <h3 className="font-serif font-bold text-base text-[#080504] truncate leading-snug">
                       {item.name}
                     </h3>
@@ -308,38 +450,39 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
                     </div>
                   </div>
 
-                  {/* Add / Quantity Button Controls */}
+                  {/* Add / Quantity Button Controls or SOLD OUT Badge */}
                   <div className="flex-shrink-0 z-10">
-                    {qty > 0 ? (
-                      <div className="flex items-center gap-1 bg-[#D97C7A] text-[#FEF6F6] px-1.5 py-1 rounded-full shadow-sm">
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
-                          title="Remove one"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-5 text-center text-xs font-bold">{qty}</span>
+                    {item.available ? (
+                      qty > 0 ? (
+                        <div className="flex items-center gap-1 bg-[#D97C7A] text-[#FEF6F6] px-1.5 py-1 rounded-full shadow-sm">
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+                            title="Remove one"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="w-5 text-center text-xs font-bold">{qty}</span>
+                          <button
+                            onClick={() => addToCart(item)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+                            title="Add one"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
                         <button
                           onClick={() => addToCart(item)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
-                          title="Add one"
+                          className="px-4 py-2 rounded-full text-xs font-bold tracking-wide shadow-sm bg-[#FDB2B2] text-[#080504] hover:bg-[#D97C7A] hover:text-[#FEF6F6] active:scale-95 transition-all"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          ADD
                         </button>
-                      </div>
+                      )
                     ) : (
-                      <button
-                        onClick={() => addToCart(item)}
-                        disabled={!item.available}
-                        className={`px-4 py-2 rounded-full text-xs font-bold tracking-wide shadow-sm transition-all ${
-                          item.available
-                            ? 'bg-[#FDB2B2] text-[#080504] hover:bg-[#D97C7A] hover:text-[#FEF6F6] active:scale-95'
-                            : 'bg-[#675A58]/20 text-[#675A58]/50 cursor-not-allowed'
-                        }`}
-                      >
-                        ADD
-                      </button>
+                      <span className="px-3.5 py-2 bg-gray-200 border border-gray-300 text-gray-500 rounded-full text-xs font-bold tracking-wider uppercase shadow-sm select-none">
+                        SOLD OUT
+                      </span>
                     )}
                   </div>
                 </motion.div>
@@ -371,7 +514,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
               {totalItemsCount}
             </span>
           </div>
-          <span className="text-xs font-bold font-sans pr-1">Review Cart • ₹{totalAmount}</span>
+          <span className="text-xs font-bold font-sans pr-1">Review Cart</span>
         </motion.button>
       )}
 
@@ -414,60 +557,34 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
               {/* Cart List */}
               <div className="flex-grow overflow-y-auto px-6 py-4 space-y-4">
                 {cart.map((item) => (
-                  <div key={item.menuItem.id} className="flex justify-between items-center border-b border-[#ECD8D6]/20 pb-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={item.menuItem.imageUrl}
-                        alt={item.menuItem.name}
-                        className="w-12 h-12 rounded-xl object-cover bg-[#ECD8D6]"
-                      />
-                      <div>
-                        <h4 className="text-sm font-bold text-[#080504]">{item.menuItem.name}</h4>
-                        <p className="text-xs text-[#B13818] font-serif font-semibold">₹{item.menuItem.price} each</p>
-                      </div>
+                  <div key={item.menuItem.id} className="flex justify-between items-center border-b border-[#ECD8D6]/20 pb-3.5 pt-1">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#080504] font-sans">{item.menuItem.name}</h4>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 bg-[#ECD8D6]/60 p-1 rounded-full border border-[#ECD8D6]">
-                        <button
-                          onClick={() => removeFromCart(item.menuItem.id)}
-                          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-[#D97C7A] hover:text-[#FEF6F6] transition-colors"
-                          title="Decrease quantity"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-4 text-center text-xs font-bold text-[#080504]">{item.quantity}</span>
-                        <button
-                          onClick={() => addToCart(item.menuItem)}
-                          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-[#D97C7A] hover:text-[#FEF6F6] transition-colors"
-                          title="Increase quantity"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <span className="text-sm font-bold font-serif text-[#080504] w-14 text-right">
-                        ₹{item.menuItem.price * item.quantity}
-                      </span>
+                    <div className="flex items-center gap-1.5 bg-[#ECD8D6]/60 p-1 rounded-full border border-[#ECD8D6]">
+                      <button
+                        onClick={() => removeFromCart(item.menuItem.id)}
+                        className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-[#D97C7A] hover:text-[#FEF6F6] transition-colors"
+                        title="Decrease quantity"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-4 text-center text-xs font-bold text-[#080504]">{item.quantity}</span>
+                      <button
+                        onClick={() => addToCart(item.menuItem)}
+                        className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-[#D97C7A] hover:text-[#FEF6F6] transition-colors"
+                        title="Increase quantity"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Total Summary Footer */}
-              <div className="p-6 bg-[#ECD8D6]/30 border-t border-[#ECD8D6] space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#675A58] font-medium">Subtotal Amount</span>
-                  <span className="font-bold text-[#080504] font-serif">₹{totalAmount}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#675A58] font-medium">Service Tax & CGST (Inclusive)</span>
-                  <span className="font-bold text-[#080504]">₹0</span>
-                </div>
-                <div className="flex justify-between items-center border-t border-[#ECD8D6]/50 pt-3">
-                  <span className="text-base font-serif font-bold text-[#B13818]">Grand Total</span>
-                  <span className="text-xl font-serif font-bold text-[#B13818]">₹{totalAmount}</span>
-                </div>
-
+              <div className="p-6 bg-[#ECD8D6]/30 border-t border-[#ECD8D6]">
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isPlacingOrder || cart.length === 0}
@@ -496,12 +613,23 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
         <p className="text-[10px] text-[#675A58]/50 mt-1 font-mono tracking-wider">
           EST. 2026 • ALL RIGHTS RESERVED
         </p>
-        <button
-          onClick={onOpenAdminPin}
-          className="mt-4 inline-flex items-center gap-1 text-[10px] text-[#675A58]/60 hover:text-[#B13818] transition-colors font-mono tracking-widest uppercase hover:underline cursor-pointer"
-        >
-          <span>Staff Dashboard Access</span>
-        </button>
+        <div className="mt-4 flex justify-center items-center gap-2 text-[9px] text-[#675A58]/35 font-mono tracking-wider select-none">
+          <span>SYS_V4.2</span>
+          <span>•</span>
+          <button
+            onClick={onSwitchToChef}
+            className="hover:text-[#675A58]/70 transition-colors cursor-pointer"
+          >
+            SYS_OPS
+          </button>
+          <span>•</span>
+          <button
+            onClick={onOpenAdminPin}
+            className="hover:text-[#675A58]/70 transition-colors cursor-pointer"
+          >
+            SYS_MGMT
+          </button>
+        </div>
       </footer>
     </div>
   );

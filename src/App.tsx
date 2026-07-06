@@ -89,7 +89,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FEF6F6]">
-      {/* Top simulator switcher bar */}
+      {/* Top navigation bar */}
       <RoleSwitcher
         currentRole={role}
         onChangeRole={handleRoleChange}
@@ -104,6 +104,7 @@ export default function App() {
             menuItems={menuItems} 
             tableNumber={tableNumber} 
             onOpenAdminPin={() => setIsAdminPinOpen(true)}
+            onSwitchToChef={() => handleRoleChange('chef')}
           />
         )}
         {role === 'chef' && <ChefView />}

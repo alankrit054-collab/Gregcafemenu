@@ -15,7 +15,9 @@ import {
   FileText,
   Image as ImageIcon,
   ChefHat,
-  X
+  X,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { MenuItem, Order, CategoryKey } from '../types';
 import { CATEGORIES } from '../initialMenu';
@@ -24,7 +26,11 @@ import {
   updateMenuItem, 
   deleteMenuItem,
   updateMenuItemAvailability,
-  subscribeOrders 
+  subscribeOrders,
+  subscribeCafeConfig,
+  updateCafeStatus,
+  updateOrderStatus,
+  updateBypassApprovalGate
 } from '../dbService';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -36,6 +42,8 @@ interface AdminViewProps {
 export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<CategoryKey>('all');
+  const [isClosed, setIsClosed] = useState(false);
+  const [bypassApprovalGate, setBypassApprovalGate] = useState(true);
   
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -48,6 +56,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
   const [addImageUrl, setAddImageUrl] = useState('');
   const [addCategory, setAddCategory] = useState<CategoryKey>('hot_coffee');
   const [addDescription, setAddDescription] = useState('');
+  const [addDietType, setAddDietType] = useState<'VEG' | 'NON-VEG'>('VEG');
   const [addError, setAddError] = useState<string | null>(null);
 
   // Form states for EDIT Item
@@ -57,6 +66,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
   const [editCategory, setEditCategory] = useState<CategoryKey>('hot_coffee');
   const [editDescription, setEditDescription] = useState('');
   const [editAvailable, setEditAvailable] = useState(true);
+  const [editDietType, setEditDietType] = useState<'VEG' | 'NON-VEG'>('VEG');
   const [editError, setEditError] = useState<string | null>(null);
 
   // Subscribe to live orders stream from Firestore to compute metrics
@@ -67,6 +77,51 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     return () => unsubscribe();
   }, []);
 
+  // Subscribe to live cafe status config from Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeCafeConfig((config) => {
+      if (config) {
+        setIsClosed(config.is_closed);
+        setBypassApprovalGate(config.bypass_approval_gate);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleToggleCafeStatus = async () => {
+    try {
+      await updateCafeStatus(!isClosed);
+    } catch (err) {
+      console.error("Error toggling cafe status:", err);
+    }
+  };
+
+  const handleToggleBypassGate = async () => {
+    try {
+      await updateBypassApprovalGate(!bypassApprovalGate);
+    } catch (err) {
+      console.error("Error toggling bypass approval gate:", err);
+    }
+  };
+
+  const handleUpdateStatus = async (orderId: string, status: 'received' | 'rejected') => {
+    try {
+      await updateOrderStatus(orderId, status);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      alert("Failed to update order status.");
+    }
+  };
+
+  const formatTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
+
   // Set initial form values when editing
   const handleOpenEditModal = (item: MenuItem) => {
     setSelectedItemToEdit(item);
@@ -76,6 +131,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     setEditCategory(item.category as CategoryKey);
     setEditDescription(item.description);
     setEditAvailable(item.available);
+    setEditDietType(item.dietType || 'VEG');
     setEditError(null);
     setIsEditModalOpen(true);
   };
@@ -86,6 +142,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     setAddImageUrl('');
     setAddCategory('hot_coffee');
     setAddDescription('');
+    setAddDietType('VEG');
     setAddError(null);
     setIsAddModalOpen(true);
   };
@@ -109,7 +166,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
         price: parsedPrice,
         imageUrl: addImageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200',
         category: addCategory === 'all' ? 'hot_coffee' : addCategory,
-        description: addDescription || 'Hand-crafted premium coffee delicacy.'
+        description: addDescription || 'Hand-crafted premium coffee delicacy.',
+        dietType: addDietType
       });
       setIsAddModalOpen(false);
     } catch (err) {
@@ -141,7 +199,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
         imageUrl: editImageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200',
         category: editCategory === 'all' ? 'hot_coffee' : editCategory,
         description: editDescription,
-        available: editAvailable
+        available: editAvailable,
+        dietType: editDietType
       });
       setIsEditModalOpen(false);
       setSelectedItemToEdit(null);
@@ -174,13 +233,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     }
   };
 
-  // Financial calculations
-  const totalRevenue = orders
-    .filter(o => o.status === 'Completed')
-    .reduce((sum, o) => sum + o.totalAmount, 0);
-
-  const completedCount = orders.filter(o => o.status === 'Completed').length;
-  const activeCount = orders.filter(o => o.status === 'Received' || o.status === 'Baking').length;
+  // Order volume metrics
+  const completedCount = orders.filter(o => o.status === 'Completed' || o.status === 'completed').length;
+  const activeCount = orders.filter(o => o.status === 'Received' || o.status === 'received' || o.status === 'Baking' || o.status === 'baking').length;
+  const pendingApprovalOrders = orders.filter(o => o.status === 'pending_approval');
 
   // Filter items by category
   const filteredMenuItems = menuItems.filter((item) => {
@@ -205,20 +261,111 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
           </p>
         </div>
 
-        {/* Cafe Financial & Volume Metrics */}
-        <div className="flex flex-wrap gap-4">
-          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/40 flex flex-col justify-center min-w-[140px]">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">COMPLETED SALES</span>
-            <span className="text-2xl font-black text-[#FDB2B2] font-mono mt-0.5">₹{totalRevenue}</span>
-          </div>
-          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px]">
+        {/* Cafe Volume Metrics */}
+        <div className="flex gap-4 w-full md:w-auto md:min-w-[280px]">
+          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px] flex-grow text-center md:text-left">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">DISPATCHED</span>
             <span className="text-2xl font-black text-green-400 font-mono mt-0.5">{completedCount}</span>
           </div>
-          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px]">
+          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px] flex-grow text-center md:text-left">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">ACTIVE QUEUE</span>
             <span className="text-2xl font-black text-amber-500 font-mono mt-0.5">{activeCount}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Order Validation Gate Area */}
+      <div className="max-w-6xl mx-auto mb-8 space-y-6">
+        {/* Master Toggle Bar */}
+        <div className="bg-[#15100E] border border-[#B13818]/30 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${bypassApprovalGate ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
+              Order Validation Gate
+            </h3>
+            <p className="text-xs text-[#675A58]">
+              {bypassApprovalGate 
+                ? "Instant Kitchen Routing: [ENABLED] — Orders bypass host verification and route instantly to the kitchen." 
+                : "Instant Kitchen Routing: [DISABLED] — Incoming orders are held in the validation queue below until approved."}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-[#675A58]">
+              Instant Kitchen Routing:
+            </span>
+            <button
+              onClick={handleToggleBypassGate}
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all duration-200 active:scale-95 border cursor-pointer ${
+                bypassApprovalGate 
+                  ? 'bg-green-950/40 border-green-700 text-green-400' 
+                  : 'bg-[#B13818]/20 border-[#B13818] text-[#FDB2B2]'
+              }`}
+            >
+              {bypassApprovalGate ? 'ENABLED' : 'DISABLED'}
+            </button>
+          </div>
+        </div>
+
+        {/* Incoming Orders Approval Queue */}
+        <div className="bg-[#15100E]/40 border border-[#B13818]/15 rounded-3xl p-6">
+          <div className="flex items-center justify-between border-b border-[#B13818]/10 pb-3 mb-4">
+            <h3 className="text-sm font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center gap-2">
+              Incoming Orders Approval View ({pendingApprovalOrders.length})
+            </h3>
+            <span className="text-[10px] text-[#675A58] font-mono uppercase tracking-widest">Awaiting Verification</span>
+          </div>
+
+          {pendingApprovalOrders.length === 0 ? (
+            <div className="text-center py-8 text-[#675A58] font-serif italic text-sm">
+              No orders are currently waiting in the approval queue.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingApprovalOrders.map(order => (
+                <div key={order.id} className="bg-[#15100E] border border-[#B13818]/25 rounded-2xl p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-serif font-black text-white text-base">Token #{order.tokenNumber}</h4>
+                        <span className="text-[10px] text-[#675A58] font-mono uppercase block mt-0.5">
+                          Placed At: {formatTime(order.createdAt)}
+                        </span>
+                      </div>
+                      <span className="bg-[#B13818]/20 text-[#FDB2B2] px-2.5 py-1 rounded-md text-xs font-bold border border-[#B13818]/30">
+                        Table {order.tableNumber}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-[#FEF6F6] border-t border-b border-[#B13818]/10 py-3 my-3">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center">
+                          <span className="font-medium text-white">{item.name}</span>
+                          <span className="font-mono font-bold text-[#FDB2B2] bg-[#B13818]/15 px-1.5 py-0.5 rounded">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      onClick={() => handleUpdateStatus(order.id, 'received')}
+                      className="bg-green-700 hover:bg-green-600 active:scale-95 text-white py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      Approve Order
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStatus(order.id, 'rejected')}
+                      className="bg-[#B13818]/20 hover:bg-[#B13818]/40 border border-[#B13818]/50 active:scale-95 text-[#FDB2B2] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      Reject / Cancel
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -318,6 +465,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
           </div>
 
           <div className="space-y-4">
+            {/* Cafe Status: OPEN / CLOSED Toggle Card */}
+            <div className={`p-5 rounded-2xl border transition-all duration-300 ${
+              isClosed 
+                ? 'bg-[#B13818]/10 border-[#B13818] shadow-[0_4px_20px_rgba(177,56,24,0.15)]' 
+                : 'bg-green-950/10 border-green-800 shadow-[0_4px_20px_rgba(34,197,94,0.1)]'
+            }`}>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-[#FDB2B2] tracking-wider font-mono">
+                  Cafe Status: OPEN / CLOSED
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1 ${
+                  isClosed ? 'bg-[#B13818] text-white animate-pulse' : 'bg-green-700 text-white'
+                }`}>
+                  {isClosed ? 'CLOSED' : 'OPEN'}
+                </span>
+              </div>
+
+              <button
+                onClick={handleToggleCafeStatus}
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                  isClosed
+                    ? 'bg-green-700 hover:bg-green-600 text-white'
+                    : 'bg-[#B13818] hover:bg-[#D97C7A] text-white hover:text-[#080504]'
+                }`}
+              >
+                {isClosed ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                <span>{isClosed ? 'OPEN CAFE' : 'CLOSE CAFE'}</span>
+              </button>
+            </div>
+
             {/* Create New Item Button */}
             <button
               onClick={handleOpenAddModal}
@@ -459,6 +636,24 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Diet Classification Dropdown */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 border border-[#B13818]/60 flex items-center justify-center p-0.5 rounded-sm bg-white">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+                    </span>
+                    Diet Classification
+                  </label>
+                  <select
+                    value={addDietType}
+                    onChange={(e) => setAddDietType(e.target.value as 'VEG' | 'NON-VEG')}
+                    className="w-full bg-[#15100E] border border-[#B13818]/30 focus:border-[#D97C7A] rounded-xl px-3 py-3 text-sm focus:outline-none text-white font-semibold"
+                  >
+                    <option value="VEG" className="bg-[#15100E] text-white">VEG (Vegetarian)</option>
+                    <option value="NON-VEG" className="bg-[#15100E] text-white">NON-VEG (Non-Vegetarian)</option>
+                  </select>
                 </div>
 
                 {/* Image URL Input */}
@@ -611,6 +806,24 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Diet Classification Dropdown */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 border border-[#B13818]/60 flex items-center justify-center p-0.5 rounded-sm bg-white">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+                    </span>
+                    Diet Classification
+                  </label>
+                  <select
+                    value={editDietType}
+                    onChange={(e) => setEditDietType(e.target.value as 'VEG' | 'NON-VEG')}
+                    className="w-full bg-[#15100E] border border-[#B13818]/30 focus:border-[#D97C7A] rounded-xl px-3 py-3 text-sm focus:outline-none text-white font-semibold"
+                  >
+                    <option value="VEG" className="bg-[#15100E] text-white">VEG (Vegetarian)</option>
+                    <option value="NON-VEG" className="bg-[#15100E] text-white">NON-VEG (Non-Vegetarian)</option>
+                  </select>
                 </div>
 
                 {/* Image URL Input */}

@@ -6,6 +6,7 @@ export interface MenuItem {
   description: string;
   imageUrl?: string;
   available: boolean;
+  dietType?: 'VEG' | 'NON-VEG';
 }
 
 export interface CartItem {
@@ -24,7 +25,7 @@ export interface Order {
   id: string;
   tableNumber: string;
   tokenNumber: number;
-  status: 'Received' | 'Baking' | 'Completed';
+  status: 'pending_approval' | 'received' | 'baking' | 'completed' | 'rejected' | 'Received' | 'Baking' | 'Completed';
   items: OrderItem[];
   totalAmount: number;
   createdAt: string;

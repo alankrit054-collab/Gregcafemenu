@@ -73,6 +73,18 @@
         }
       },
       "required": ["id", "tableNumber", "tokenNumber", "status", "items", "totalAmount", "createdAt"]
+    },
+    "CafeConfig": {
+      "title": "CafeConfig",
+      "description": "Operational configuration settings for the cafe",
+      "type": "object",
+      "properties": {
+        "is_closed": {
+          "type": "boolean",
+          "description": "Operational lock flag. If true, customer menu is fully disabled."
+        }
+      },
+      "required": ["is_closed"]
     }
   },
   "firestore": {
@@ -83,6 +95,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Collection of table orders with active fulfillment status tracking"
+    },
+    "/config/{configId}": {
+      "schema": "CafeConfig",
+      "description": "Configuration settings like cafe open/close status"
     }
   }
 }

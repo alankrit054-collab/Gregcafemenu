@@ -12,5 +12,10 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if false; // Orders shouldn't be deleted generally
     }
+
+    // Cafe configuration
+    match /config/{document=**} {
+      allow read, write: if true;
+    }
   }
 }

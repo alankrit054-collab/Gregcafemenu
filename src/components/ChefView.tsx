@@ -8,7 +8,11 @@ import {
   Activity,
   Award,
   AlertTriangle,
-  Play
+  Play,
+  Lock,
+  Unlock,
+  Delete,
+  AlertCircle
 } from 'lucide-react';
 import { Order } from '../types';
 import { subscribeOrders, updateOrderStatus } from '../dbService';
@@ -17,6 +21,70 @@ import { motion, AnimatePresence } from 'motion/react';
 export const ChefView: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ticker, setTicker] = useState(0);
+
+  // Security authorization states for Chef Deck
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [shake, setShake] = useState(false);
+
+  // Keyboard controls for PIN entry
+  useEffect(() => {
+    if (isAuthorized) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeyPress(e.key);
+      } else if (e.key === 'Backspace') {
+        handleBackspace();
+      } else if (e.key === 'Enter') {
+        if (pin.length === 4) {
+          handleVerify();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthorized, pin]);
+
+  const handleKeyPress = (digit: string) => {
+    if (error) setError(null);
+    if (pin.length < 4) {
+      setPin((prev) => prev + digit);
+    }
+  };
+
+  const handleBackspace = () => {
+    if (error) setError(null);
+    setPin((prev) => prev.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    setPin('');
+    setError(null);
+  };
+
+  const handleVerify = () => {
+    if (pin === '0000') {
+      setIsAuthorized(true);
+    } else {
+      setError('ACCESS DENIED: INVALID SECURITY PIN');
+      setShake(true);
+      setPin('');
+      setTimeout(() => setShake(false), 500);
+    }
+  };
+
+  // Auto-verify when 4 digits are entered
+  useEffect(() => {
+    if (pin.length === 4) {
+      const timer = setTimeout(() => {
+        handleVerify();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [pin]);
 
   // Active elapsed time ticker - updates every 1 second to keep timers fresh
   useEffect(() => {
@@ -43,8 +111,8 @@ export const ChefView: React.FC = () => {
     }
   };
 
-  const activeOrders = orders.filter(o => o.status === 'Received' || o.status === 'Baking');
-  const completedOrders = orders.filter(o => o.status === 'Completed');
+  const activeOrders = orders.filter(o => o.status === 'Received' || o.status === 'received' || o.status === 'Baking' || o.status === 'baking');
+  const completedOrders = orders.filter(o => o.status === 'Completed' || o.status === 'completed');
 
   // Precise elapsed time calculation
   const getElapsedTime = (isoString: string) => {
@@ -67,6 +135,117 @@ export const ChefView: React.FC = () => {
       return '';
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="bg-[#080504] min-h-screen text-[#FEF6F6] font-sans flex flex-col items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1, 
+            y: 0,
+            x: shake ? [-10, 10, -10, 10, -5, 5, 0] : 0
+          }}
+          transition={{ type: 'spring', duration: 0.4 }}
+          className="max-w-md w-full flex flex-col items-center border-2 border-[#B13818] bg-[#15100E] p-8 rounded-3xl shadow-[0_25px_60px_-15px_rgba(177,56,24,0.3)]"
+        >
+          {/* Security Header */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-[#B13818]/10 border border-[#B13818]/40 flex items-center justify-center text-[#FDB2B2] mb-4">
+              <Lock className="w-6 h-6 stroke-[2px]" />
+            </div>
+            <h2 className="text-xs font-bold tracking-widest text-[#FDB2B2] uppercase font-sans">
+              KITCHEN SECURITY TERMINAL
+            </h2>
+            <h1 className="text-2xl font-serif font-black tracking-tight text-white mt-1">
+              Chef Access Authorization
+            </h1>
+            <p className="text-[10px] text-[#675A58] font-mono mt-1 uppercase tracking-wider">
+              Enter 4-Digit Security PIN Code
+            </p>
+          </div>
+
+          {/* PIN Bubble Display */}
+          <div className="flex gap-4 justify-center items-center h-10 mb-6">
+            {[0, 1, 2, 3].map((index) => {
+              const isActive = pin.length > index;
+              return (
+                <motion.div
+                  key={index}
+                  animate={isActive ? { scale: [1, 1.2, 1] } : {}}
+                  className={`w-4 h-4 rounded-full border transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-[#FDB2B2] border-[#FDB2B2] shadow-[0_0_8px_rgba(253,178,178,0.6)]' 
+                      : 'bg-[#080504] border-[#B13818]/40'
+                  }`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Warning/Error Message */}
+          <div className="h-6 mb-6 w-full text-center">
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-950/40 border border-red-900 rounded-full text-[10px] text-red-400 font-bold tracking-wider font-sans uppercase shadow-sm"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 3x4 Keypad Grid */}
+          <div className="grid grid-cols-3 gap-3 w-full mb-6">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+              <button
+                key={digit}
+                onClick={() => handleKeyPress(digit)}
+                className="h-14 rounded-2xl bg-[#080504] hover:bg-[#B13818]/20 active:bg-[#B13818]/30 border border-[#B13818]/20 hover:border-[#D97C7A]/40 text-xl font-bold font-mono transition-all active:scale-95 text-[#FEF6F6] select-none cursor-pointer"
+              >
+                {digit}
+              </button>
+            ))}
+
+            {/* Clear Button */}
+            <button
+              onClick={handleClear}
+              className="h-14 rounded-2xl bg-[#080504]/40 hover:bg-[#B13818]/10 active:bg-[#B13818]/20 border border-[#B13818]/10 text-xs font-bold font-sans tracking-wider uppercase transition-all text-[#675A58] hover:text-[#FEF6F6] select-none cursor-pointer"
+            >
+              Clear
+            </button>
+
+            {/* Zero */}
+            <button
+              onClick={() => handleKeyPress('0')}
+              className="h-14 rounded-2xl bg-[#080504] hover:bg-[#B13818]/20 active:bg-[#B13818]/30 border border-[#B13818]/20 hover:border-[#D97C7A]/40 text-xl font-bold font-mono transition-all active:scale-95 text-[#FEF6F6] select-none cursor-pointer"
+            >
+              0
+            </button>
+
+            {/* Backspace Button */}
+            <button
+              onClick={handleBackspace}
+              className="h-14 rounded-2xl bg-[#080504]/40 hover:bg-[#B13818]/10 active:bg-[#B13818]/20 border border-[#B13818]/10 flex items-center justify-center transition-all text-[#675A58] hover:text-[#FEF6F6] select-none cursor-pointer"
+              title="Delete last digit"
+            >
+              <Delete className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="text-[10px] text-[#675A58] font-mono tracking-wide text-center">
+            DEFAULT KITCHEN PIN: <span className="text-[#FDB2B2] font-bold">0000</span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#080504] min-h-screen text-[#FEF6F6] font-sans p-6 pb-24">
@@ -95,10 +274,6 @@ export const ChefView: React.FC = () => {
           <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-green-950 flex flex-col justify-center min-w-[120px]">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">COMPLETED TODAY</span>
             <span className="text-2xl font-black text-green-400 font-mono mt-0.5">{completedOrders.length}</span>
-          </div>
-          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-blue-950 flex flex-col justify-center min-w-[120px]">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">KITCHEN TEMP</span>
-            <span className="text-2xl font-black text-amber-500 font-mono mt-0.5">24.5°C</span>
           </div>
         </div>
       </div>
@@ -131,7 +306,7 @@ export const ChefView: React.FC = () => {
             >
               <AnimatePresence mode="popLayout">
                 {activeOrders.map((order) => {
-                  const isBaking = order.status === 'Baking';
+                  const isBaking = order.status === 'Baking' || order.status === 'baking';
                   return (
                     <motion.div
                       layout

@@ -158,6 +158,21 @@ export async function placeOrder(
     tokenNumber = Math.floor(Math.random() * 900) + 100; // random 3 digit token as safety
   }
 
+  // Fetch current config to check bypass_approval_gate status in real-time
+  let bypassApprovalGate = true;
+  try {
+    const docRef = doc(db, CONFIG_COLLECTION, CAFE_CONFIG_DOC);
+    const docSnapshot = await getDoc(docRef);
+    if (docSnapshot.exists()) {
+      const data = docSnapshot.data();
+      if (data.bypass_approval_gate !== undefined) {
+        bypassApprovalGate = !!data.bypass_approval_gate;
+      }
+    }
+  } catch (error) {
+    console.error("Error reading cafe config for order gate, defaulting to bypass=true:", error);
+  }
+
   const orderItems: OrderItem[] = cartItems.map((item) => ({
     id: item.menuItem.id,
     name: item.menuItem.name,
@@ -170,7 +185,7 @@ export async function placeOrder(
     id: orderId,
     tableNumber: tableNumber || 'N/A',
     tokenNumber: tokenNumber,
-    status: 'Received',
+    status: bypassApprovalGate ? 'received' : 'pending_approval',
     items: orderItems,
     totalAmount: totalAmount,
     createdAt: new Date().toISOString()
@@ -226,7 +241,7 @@ export function subscribeToOrder(orderId: string, callback: (order: Order | null
  */
 export async function updateOrderStatus(
   orderId: string, 
-  status: 'Received' | 'Baking' | 'Completed'
+  status: Order['status']
 ): Promise<void> {
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);
   try {
@@ -301,3 +316,57 @@ export async function deleteMenuItem(itemId: string): Promise<void> {
     handleFirestoreError(error, OperationType.WRITE, `${MENU_COLLECTION}/${itemId}`);
   }
 }
+
+const CONFIG_COLLECTION = 'config';
+const CAFE_CONFIG_DOC = 'cafe';
+
+export interface CafeConfig {
+  is_closed: boolean;
+  bypass_approval_gate: boolean;
+}
+
+/**
+ * Subscribes to live updates of the cafe's configuration (is_closed, bypass_approval_gate).
+ */
+export function subscribeCafeConfig(callback: (config: CafeConfig | null) => void) {
+  const docRef = doc(db, CONFIG_COLLECTION, CAFE_CONFIG_DOC);
+  return onSnapshot(docRef, (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      const data = docSnapshot.data();
+      callback({
+        is_closed: !!data.is_closed,
+        bypass_approval_gate: data.bypass_approval_gate !== undefined ? !!data.bypass_approval_gate : true
+      });
+    } else {
+      // Return defaults (open, bypass approval gate)
+      callback({ is_closed: false, bypass_approval_gate: true });
+    }
+  }, (error) => {
+    handleFirestoreError(error, OperationType.GET, `${CONFIG_COLLECTION}/${CAFE_CONFIG_DOC}`);
+  });
+}
+
+/**
+ * Updates the cafe's is_closed status.
+ */
+export async function updateCafeStatus(isClosed: boolean): Promise<void> {
+  const docRef = doc(db, CONFIG_COLLECTION, CAFE_CONFIG_DOC);
+  try {
+    await setDoc(docRef, { is_closed: isClosed }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `${CONFIG_COLLECTION}/${CAFE_CONFIG_DOC}`);
+  }
+}
+
+/**
+ * Updates the cafe's bypass_approval_gate status.
+ */
+export async function updateBypassApprovalGate(bypass: boolean): Promise<void> {
+  const docRef = doc(db, CONFIG_COLLECTION, CAFE_CONFIG_DOC);
+  try {
+    await setDoc(docRef, { bypass_approval_gate: bypass }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `${CONFIG_COLLECTION}/${CAFE_CONFIG_DOC}`);
+  }
+}
+
