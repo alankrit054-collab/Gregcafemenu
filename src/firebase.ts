@@ -2,16 +2,17 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBZ1Z9SWX1CJR9Gg9Z3sZbjJezzvKCxS_8",
-  authDomain: "authentic-muse-ql2lq.firebaseapp.com",
-  projectId: "authentic-muse-ql2lq",
-  storageBucket: "authentic-muse-ql2lq.firebasestorage.app",
-  messagingSenderId: "746819477439",
-  appId: "1:746819477439:web:bf2f52ce4ca29a3c4c8b0a"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBZ1Z9SWX1CJR9Gg9Z3sZbjJezzvKCxS_8",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "authentic-muse-ql2lq.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "authentic-muse-ql2lq",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "authentic-muse-ql2lq.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "746819477439",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:746819477439:web:bf2f52ce4ca29a3c4c8b0a"
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-1f2888a0-3726-4090-8f47-aaf6fcf36231");
+const dbId = import.meta.env.VITE_FIREBASE_DB_ID || "ai-studio-1f2888a0-3726-4090-8f47-aaf6fcf36231";
+export const db = getFirestore(app, dbId);
 
 
 // CRITICAL CONSTRAINT: Validate Firestore connection on boot
