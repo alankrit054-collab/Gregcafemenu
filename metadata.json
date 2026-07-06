@@ -1,0 +1,6 @@
+{
+  "name": "Greg's Cafe",
+  "description": "Real-time, multi-device QR-code-based ordering system with instant live-syncing for customers, chef, and admin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

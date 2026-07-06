@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A delicacy served at Greg's Cafe",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the menu item"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the item"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price in cents or standard currency units"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the item",
+          "enum": ["hot_coffee", "iced_coffee", "cold_brews", "hot_chocolate", "tea", "matcha"]
+        },
+        "description": {
+          "type": "string",
+          "description": "A short descriptive label of the delicacy"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL to the visual asset of the item"
+        },
+        "available": {
+          "type": "boolean",
+          "description": "Availability status of the item"
+        }
+      },
+      "required": ["id", "name", "price", "category", "description", "available"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An order placed by a customer from a specific table",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Firestore document ID, also order ID"
+        },
+        "tableNumber": {
+          "type": "string",
+          "description": "The table number from where order was placed"
+        },
+        "tokenNumber": {
+          "type": "integer",
+          "description": "Unique sequential order token number"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current tracking status of the order",
+          "enum": ["Received", "Baking", "Completed"]
+        },
+        "items": {
+          "type": "array",
+          "description": "List of ordered items with quantities"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total checkout price"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the order was placed"
+        }
+      },
+      "required": ["id", "tableNumber", "tokenNumber", "status", "items", "totalAmount", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/menu_items/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Collection of available food and drink items on the menu"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of table orders with active fulfillment status tracking"
+    }
+  }
+}

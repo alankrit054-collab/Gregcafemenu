@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Menu items can be read by anyone (customer, chef, admin), but written only by admin/chef
+    match /menu_items/{itemId} {
+      allow read: if true;
+      allow write: if true; // In a production system, we would restrict to authenticated admin/chef
+    }
+
+    // Orders can be created by anyone, read by anyone (for status tracking), and updated (for status changes)
+    match /orders/{orderId} {
+      allow read, create, update: if true;
+      allow delete: if false; // Orders shouldn't be deleted generally
+    }
+  }
+}
