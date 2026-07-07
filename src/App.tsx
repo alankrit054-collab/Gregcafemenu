@@ -6,12 +6,76 @@ import { CustomerView } from './components/CustomerView';
 import { ChefView } from './components/ChefView';
 import { AdminView } from './components/AdminView';
 import { AdminPinModal } from './components/AdminPinModal';
+import { BrewingLoader } from './components/BrewingLoader';
+import { QRIntroSplash } from './components/QRIntroSplash';
+
+// Helper functions to parse the restaurant slug dynamically from the path or query parameters
+const getSlugFromUrl = (): string => {
+  // 1. Check for query parameter override (e.g. ?slug=greg-cafe)
+  const params = new URLSearchParams(window.location.search);
+  const slugParam = params.get('slug');
+  if (slugParam) return slugParam;
+
+  // 2. Check for dynamic pathname segment (e.g. /greg-cafe)
+  const pathname = window.location.pathname;
+  const pathSegments = pathname.split('/').filter(Boolean);
+  if (pathSegments.length > 0) {
+    const firstSegment = pathSegments[0];
+    // Exclude system asset folders or APIs
+    if (firstSegment !== 'assets' && firstSegment !== 'api') {
+      return firstSegment;
+    }
+  }
+
+  // 3. Fallback default
+  return 'greg-cafe';
+};
+
+const getRestaurantNameFromSlug = (rawSlug: string): string => {
+  if (rawSlug.toLowerCase().includes('greg')) {
+    return "Greg's Cafe";
+  }
+  // Standard title-case translation for other multi-tenant dynamic cafe nodes
+  return rawSlug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export default function App() {
   const [role, setRole] = useState<'customer' | 'chef' | 'admin'>('customer');
   const [tableNumber, setTableNumber] = useState('4');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => {
+    // Check if splash was already shown in this tab session to avoid annoying repetitiveness
+    const shown = sessionStorage.getItem('menubyte_splash_shown');
+    return !shown;
+  });
+
+  const [restaurantName, setRestaurantName] = useState(() => {
+    const rawSlug = getSlugFromUrl();
+    return getRestaurantNameFromSlug(rawSlug);
+  });
+
+  // Dynamic Tab Title & Browser Metadata Injection
+  useEffect(() => {
+    // Dynamically override the tab header title
+    document.title = `${restaurantName} | Live Menu`;
+
+    // Dynamically override or create the head description meta tag
+    let descriptionMeta = document.querySelector('meta[name="description"]');
+    if (!descriptionMeta) {
+      descriptionMeta = document.createElement('meta');
+      descriptionMeta.setAttribute('name', 'description');
+      document.head.appendChild(descriptionMeta);
+    }
+    descriptionMeta.setAttribute(
+      'content',
+      `Welcome to ${restaurantName}! Scan your table QR code, browse our premium delicacies, and fire your order tokens directly to the kitchen line instantly.`
+    );
+  }, [restaurantName]);
 
   // Security authorization states
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
@@ -51,11 +115,16 @@ export default function App() {
       setIsAdminPinOpen(true);
       return;
     }
-    setRole(newRole);
-    // Dynamically update URL parameter for visual integrity and deep linking
-    const params = new URLSearchParams(window.location.search);
-    params.set('role', newRole);
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setRole(newRole);
+      // Dynamically update URL parameter for visual integrity and deep linking
+      const params = new URLSearchParams(window.location.search);
+      params.set('role', newRole);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      setIsTransitioning(false);
+    }, 1700);
   };
 
   const handleTableChange = (newTable: string) => {
@@ -69,20 +138,37 @@ export default function App() {
   const handleAdminPinSuccess = () => {
     setIsAdminAuthorized(true);
     setIsAdminPinOpen(false);
-    setRole('admin');
-
-    // Update URL to reflect Admin role
-    const params = new URLSearchParams(window.location.search);
-    params.set('role', 'admin');
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setRole('admin');
+      // Update URL to reflect Admin role
+      const params = new URLSearchParams(window.location.search);
+      params.set('role', 'admin');
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      setIsTransitioning(false);
+    }, 1700);
   };
 
-  if (loading) {
+  if (showSplash) {
+    return (
+      <QRIntroSplash
+        restaurantName={restaurantName}
+        onComplete={() => {
+          setShowSplash(false);
+          sessionStorage.setItem('menubyte_splash_shown', 'true');
+        }}
+      />
+    );
+  }
+
+  if (loading || isTransitioning) {
     return (
       <div className="bg-[#FEF6F6] min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-12 h-12 border-4 border-[#D97C7A] border-t-transparent rounded-full animate-spin mb-4" />
-        <h2 className="text-lg font-serif font-bold text-[#B13818] animate-pulse">Initializing Greg's Cafe...</h2>
-        <p className="text-xs text-[#675A58] mt-1">Connecting to Firestore Live Sync database</p>
+        <BrewingLoader 
+          message={loading ? `Brewing ${restaurantName}...` : "Brewing Your Station..."}
+          subMessage={loading ? "Connecting to Firestore Live Sync" : "Polishing the counters & cups"}
+        />
       </div>
     );
   }
@@ -94,7 +180,7 @@ export default function App() {
         currentRole={role}
         onChangeRole={handleRoleChange}
         tableNumber={tableNumber}
-        onChangeTable={handleTableChange}
+        restaurantName={restaurantName}
       />
 
       {/* Primary view dispatcher */}

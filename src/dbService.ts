@@ -10,7 +10,10 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  orderBy,
+  limit,
+  startAfter
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
@@ -66,6 +69,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+/**
+ * Utility to pad a token number to exactly 3 digits (e.g. 001, 042).
+ */
+export function formatTokenNumber(num: number | string): string {
+  return String(num).padStart(3, '0');
 }
 
 /**
@@ -133,29 +143,68 @@ export async function placeOrder(
 ): Promise<Order> {
   const ordersRef = collection(db, ORDERS_COLLECTION);
   
-  // Calculate sequential token number
-  // To avoid complex composite indexes, we get all current orders and calculate the highest token number
-  let tokenNumber = 101; // Start sequence at 101 for Greg's Cafe vibe
+  // Calculate sequential token number with calendar-day automatic reset logic
+  let tokenNumber = 1; // Start sequence at 1 (001) for a brand new day or first order
+  const getCalendarDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getCalendarDateString(new Date());
+
   try {
     const snapshot = await getDocs(ordersRef);
     if (!snapshot.empty) {
-      let maxToken = 100;
+      // Find the most recent order overall by checking timestamps
+      let mostRecentOrder: any = null;
+      let maxCreatedAtTime = 0;
+      
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.tokenNumber && typeof data.tokenNumber === 'number') {
-          if (data.tokenNumber > maxToken) {
-            maxToken = data.tokenNumber;
+        if (data.createdAt) {
+          const time = new Date(data.createdAt).getTime();
+          if (time > maxCreatedAtTime) {
+            maxCreatedAtTime = time;
+            mostRecentOrder = data;
           }
         }
       });
-      tokenNumber = maxToken + 1;
+
+      let isNewDay = true;
+      if (mostRecentOrder) {
+        const mostRecentDateStr = getCalendarDateString(new Date(mostRecentOrder.createdAt));
+        if (mostRecentDateStr === todayStr) {
+          isNewDay = false;
+        }
+      }
+
+      if (isNewDay) {
+        tokenNumber = 1; // force start fresh at exactly 001
+      } else {
+        // Find highest recorded token value generated earlier that day and increment by 1
+        let maxTokenToday = 0;
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.createdAt && data.tokenNumber && typeof data.tokenNumber === 'number') {
+            const oDateStr = getCalendarDateString(new Date(data.createdAt));
+            if (oDateStr === todayStr) {
+              if (data.tokenNumber > maxTokenToday) {
+                maxTokenToday = data.tokenNumber;
+              }
+            }
+          }
+        });
+        tokenNumber = maxTokenToday + 1;
+      }
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('permission')) {
       handleFirestoreError(error, OperationType.GET, ORDERS_COLLECTION);
     }
     console.error("Error calculating token number, falling back to random:", error);
-    tokenNumber = Math.floor(Math.random() * 900) + 100; // random 3 digit token as safety
+    tokenNumber = Math.floor(Math.random() * 99) + 1; // random safety token starting at 1
   }
 
   // Fetch current config to check bypass_approval_gate status in real-time
@@ -209,13 +258,30 @@ export function subscribeOrders(callback: (orders: Order[]) => void) {
   return onSnapshot(ordersRef, (snapshot) => {
     const orders: Order[] = [];
     snapshot.forEach((doc) => {
-      orders.push(doc.data() as Order);
+      const data = doc.data() as Order;
+      if (data.status !== 'archived' && data.status !== 'Archived') {
+        orders.push(data);
+      }
     });
     // Sort orders by creation date (newest first for chef, or oldest first for queue priority. Let's do oldest first so chef works in queue order)
     orders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     callback(orders);
   }, (error) => {
     handleFirestoreError(error, OperationType.GET, ORDERS_COLLECTION);
+  });
+}
+
+/**
+ * Subscribes to the live total count of all orders.
+ * Regardless of whether the order status is pending, completed, or archived.
+ */
+export function subscribeAllOrdersCount(callback: (count: number) => void) {
+  const ordersRef = collection(db, ORDERS_COLLECTION);
+  return onSnapshot(ordersRef, (snapshot) => {
+    callback(snapshot.size);
+  }, (error) => {
+    console.error("Error fetching live total orders count:", error);
+    callback(0);
   });
 }
 
@@ -248,6 +314,33 @@ export async function updateOrderStatus(
     await updateDoc(orderRef, { status });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${ORDERS_COLLECTION}/${orderId}`);
+  }
+}
+
+/**
+ * Safely batches and archives all completed or delivered orders.
+ */
+export async function archiveCompletedOrders(): Promise<void> {
+  const ordersRef = collection(db, ORDERS_COLLECTION);
+  try {
+    const snapshot = await getDocs(ordersRef);
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const status = (data.status || '').toLowerCase();
+        if (status === 'completed' || status === 'delivered') {
+          batch.update(doc.ref, { status: 'archived' });
+          count++;
+        }
+      });
+      if (count > 0) {
+        await batch.commit();
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, ORDERS_COLLECTION);
   }
 }
 
@@ -368,5 +461,48 @@ export async function updateBypassApprovalGate(bypass: boolean): Promise<void> {
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${CONFIG_COLLECTION}/${CAFE_CONFIG_DOC}`);
   }
+}
+
+/**
+ * Robustly fetches all historical orders from Firestore using pagination cursors
+ * to ensure smooth handling of large collections.
+ */
+export async function fetchAllOrdersLedger(): Promise<Order[]> {
+  const ordersRef = collection(db, ORDERS_COLLECTION);
+  const allOrders: Order[] = [];
+  let lastDoc = null;
+  const BATCH_SIZE = 100;
+  let hasMore = true;
+
+  try {
+    while (hasMore) {
+      let q = query(ordersRef, orderBy('createdAt', 'desc'), limit(BATCH_SIZE));
+      if (lastDoc) {
+        q = query(ordersRef, orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(BATCH_SIZE));
+      }
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        hasMore = false;
+      } else {
+        snapshot.forEach((doc) => {
+          allOrders.push(doc.data() as Order);
+        });
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.docs.length < BATCH_SIZE) {
+          hasMore = false;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching paginated historical orders:", error);
+    // Fallback to simpler load if cursor index is building or fails
+    const snapshot = await getDocs(ordersRef);
+    snapshot.forEach((doc) => {
+      allOrders.push(doc.data() as Order);
+    });
+    allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  return allOrders;
 }
 

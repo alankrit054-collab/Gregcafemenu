@@ -17,7 +17,9 @@ import {
   ChefHat,
   X,
   Lock,
-  Unlock
+  Unlock,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { MenuItem, Order, CategoryKey } from '../types';
 import { CATEGORIES } from '../initialMenu';
@@ -30,7 +32,10 @@ import {
   subscribeCafeConfig,
   updateCafeStatus,
   updateOrderStatus,
-  updateBypassApprovalGate
+  updateBypassApprovalGate,
+  formatTokenNumber,
+  fetchAllOrdersLedger,
+  subscribeAllOrdersCount
 } from '../dbService';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -68,6 +73,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
   const [editAvailable, setEditAvailable] = useState(true);
   const [editDietType, setEditDietType] = useState<'VEG' | 'NON-VEG'>('VEG');
   const [editError, setEditError] = useState<string | null>(null);
+  const [lifetimeOrdersCount, setLifetimeOrdersCount] = useState<number>(0);
+
+  // Subscribe to live total count of all orders regardless of status
+  useEffect(() => {
+    const unsubscribe = subscribeAllOrdersCount((count) => {
+      setLifetimeOrdersCount(count || 0);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Subscribe to live orders stream from Firestore to compute metrics
   useEffect(() => {
@@ -101,6 +115,63 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
       await updateBypassApprovalGate(!bypassApprovalGate);
     } catch (err) {
       console.error("Error toggling bypass approval gate:", err);
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportLedger = async () => {
+    setIsExporting(true);
+    try {
+      const allOrders = await fetchAllOrdersLedger();
+
+      const ledgerRows = allOrders.flatMap((order) => {
+        const dateObj = new Date(order.createdAt);
+        const formattedTimestamp = isNaN(dateObj.getTime())
+          ? order.createdAt
+          : `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')} ${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}:${String(dateObj.getSeconds()).padStart(2, '0')}`;
+
+        const itemsListStr = order.items
+          .map((item) => `${item.name} (x${item.quantity})`)
+          .join('; ');
+
+        const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+        return {
+          'Timestamp': formattedTimestamp,
+          'Token Number': formatTokenNumber(order.tokenNumber),
+          'Table Number': `Table ${order.tableNumber}`,
+          'Items Ordered': itemsListStr,
+          'Quantity': totalQty,
+          'Order Status': order.status.toUpperCase(),
+          'Total Amount (₹)': order.totalAmount
+        };
+      });
+
+      const XLSX = await import('xlsx');
+      const worksheet = XLSX.utils.json_to_sheet(ledgerRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Ledger");
+
+      const max_widths = ledgerRows.reduce((acc, row) => {
+        Object.keys(row).forEach((key) => {
+          const valStr = String((row as any)[key]);
+          acc[key] = Math.max(acc[key] || 0, key.length, valStr.length);
+        });
+        return acc;
+      }, {} as Record<string, number>);
+
+      worksheet['!cols'] = Object.keys(max_widths).map(key => ({
+        wch: Math.min(Math.max(max_widths[key] + 3, 10), 60)
+      }));
+
+      XLSX.writeFile(workbook, `Gregs_Cafe_Orders_Ledger_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    } catch (err) {
+      console.error("Error exporting ledger:", err);
+      alert("Failed to export ledger. Please try again.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -261,8 +332,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
           </p>
         </div>
 
-        {/* Cafe Volume Metrics */}
-        <div className="flex gap-4 w-full md:w-auto md:min-w-[280px]">
+        {/* Cafe Volume Metrics & Action Toolbar */}
+        <div className="flex flex-wrap md:flex-nowrap items-stretch gap-4 w-full md:w-auto">
           <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px] flex-grow text-center md:text-left">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">DISPATCHED</span>
             <span className="text-2xl font-black text-green-400 font-mono mt-0.5">{completedCount}</span>
@@ -271,6 +342,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">ACTIVE QUEUE</span>
             <span className="text-2xl font-black text-amber-500 font-mono mt-0.5">{activeCount}</span>
           </div>
+          <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/20 flex flex-col justify-center min-w-[120px] flex-grow text-center md:text-left">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">LIFETIME ORDERS</span>
+            <span className="text-2xl font-black text-[#FEF6F6] font-mono mt-0.5">{lifetimeOrdersCount}</span>
+          </div>
+          <button
+            onClick={handleExportLedger}
+            disabled={isExporting}
+            className="bg-[#15100E] hover:bg-[#B13818]/20 text-[#FEF6F6] hover:text-white border border-[#B13818]/40 hover:border-[#D97C7A] px-5 py-3 rounded-2xl flex flex-col items-center justify-center min-w-[140px] flex-grow transition-all duration-200 active:scale-95 shadow-lg group cursor-pointer"
+            title="Download completed historical ledger of orders"
+          >
+            {isExporting ? (
+              <span className="w-5 h-5 border-2 border-[#D97C7A] border-t-transparent rounded-full animate-spin my-1" />
+            ) : (
+              <FileSpreadsheet className="w-5 h-5 text-[#D97C7A] group-hover:scale-110 transition-transform mb-1" />
+            )}
+            <span className="text-[9px] uppercase font-black tracking-widest text-[#FDB2B2] text-center">Export Orders Ledger (.xlsx)</span>
+          </button>
         </div>
       </div>
 
@@ -326,7 +414,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
                   <div>
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h4 className="font-serif font-black text-white text-base">Token #{order.tokenNumber}</h4>
+                        <h4 className="font-serif font-black text-white text-base">Token #{formatTokenNumber(order.tokenNumber)}</h4>
                         <span className="text-[10px] text-[#675A58] font-mono uppercase block mt-0.5">
                           Placed At: {formatTime(order.createdAt)}
                         </span>

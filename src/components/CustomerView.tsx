@@ -15,8 +15,9 @@ import {
 } from 'lucide-react';
 import { MenuItem, CartItem, Order, CategoryKey } from '../types';
 import { CATEGORIES } from '../initialMenu';
-import { placeOrder, subscribeToOrder, subscribeCafeConfig } from '../dbService';
+import { placeOrder, subscribeToOrder, subscribeCafeConfig, formatTokenNumber } from '../dbService';
 import { motion, AnimatePresence } from 'motion/react';
+import { BrewingLoader } from './BrewingLoader';
 
 const getDietType = (item: MenuItem): 'VEG' | 'NON-VEG' => {
   if (item.dietType) return item.dietType;
@@ -57,6 +58,51 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
   // Placed Order state for live tracking
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isClosed, setIsClosed] = useState(false);
+
+  // Brewing transition states
+  const [isBrewingLoading, setIsBrewingLoading] = useState(false);
+  const [brewingMessage, setBrewingMessage] = useState('Brewing Your Experience...');
+  const [brewingSubMessage, setBrewingSubMessage] = useState('Aligning live cafe parameters');
+
+  const triggerBrewingTransition = (
+    message: string,
+    subMessage: string,
+    action: () => void | Promise<void>
+  ) => {
+    setIsBrewingLoading(true);
+    setBrewingMessage(message);
+    setBrewingSubMessage(subMessage);
+
+    const startTime = Date.now();
+    const MIN_DURATION = 1700; // Enforce strict 1.5 to 2 seconds window (1.7s)
+
+    const execute = async () => {
+      try {
+        await action();
+      } catch (err) {
+        console.error("Transition action error:", err);
+      } finally {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, MIN_DURATION - elapsed);
+        setTimeout(() => {
+          setIsBrewingLoading(false);
+        }, remaining);
+      }
+    };
+
+    execute();
+  };
+
+  const handleCategoryChange = (categoryKey: CategoryKey, label: string) => {
+    if (selectedCategory === categoryKey) return;
+    triggerBrewingTransition(
+      `Filtering ${label}...`,
+      "Curating our artisan brews and bakes",
+      () => {
+        setSelectedCategory(categoryKey);
+      }
+    );
+  };
 
   // Live order listener
   useEffect(() => {
@@ -128,18 +174,24 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
   // Checkout submission
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
-    setIsPlacingOrder(true);
-    try {
-      const placed = await placeOrder(tableNumber || '4', cart, totalAmount);
-      setActiveOrder(placed);
-      setCart([]); // Clear cart
-      setIsCartOpen(false); // Close cart sheet
-    } catch (error) {
-      console.error("Error placing order:", error);
-      alert("Failed to place order. Please try again.");
-    } finally {
-      setIsPlacingOrder(false);
-    }
+    triggerBrewingTransition(
+      "Transmitting Order...",
+      "Securing ticket bounds on live node",
+      async () => {
+        setIsPlacingOrder(true);
+        try {
+          const placed = await placeOrder(tableNumber || '4', cart, totalAmount);
+          setActiveOrder(placed);
+          setCart([]); // Clear cart
+          setIsCartOpen(false); // Close cart sheet
+        } catch (error) {
+          console.error("Error placing order:", error);
+          alert("Failed to place order. Please try again.");
+        } finally {
+          setIsPlacingOrder(false);
+        }
+      }
+    );
   };
 
   if (isClosed) {
@@ -252,7 +304,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
                     : 'Live Active Order'}
                 </span>
                 <h3 className="text-lg font-serif font-bold text-white mt-0.5">
-                  Token #{activeOrder.tokenNumber} — Table {activeOrder.tableNumber}
+                  Token #{formatTokenNumber(activeOrder.tokenNumber)} — Table {activeOrder.tableNumber}
                 </h3>
               </div>
               <button 
@@ -374,7 +426,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
               return (
                 <button
                   key={category.key}
-                  onClick={() => setSelectedCategory(category.key as CategoryKey)}
+                  onClick={() => handleCategoryChange(category.key as CategoryKey, category.label)}
                   className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold tracking-wide transition-all ${
                     isActive
                       ? 'bg-[#D97C7A] text-[#FEF6F6] shadow-sm'
@@ -504,7 +556,15 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
           animate={{ scale: 1, y: 0 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setIsCartOpen(true)}
+          onClick={() => {
+            triggerBrewingTransition(
+              "Reviewing Your Cart...",
+              "Gathering selected delicacies",
+              () => {
+                setIsCartOpen(true);
+              }
+            );
+          }}
           className="fixed bottom-6 right-6 bg-[#080504] text-[#FEF6F6] p-4 rounded-full shadow-2xl flex items-center gap-3 z-40 border border-[#D97C7A]/40 group"
           title="Open cart drawer"
         >
@@ -631,6 +691,25 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ menuItems, tableNumb
           </button>
         </div>
       </footer>
+
+      {/* Premium Coffee Brewing Loading Overlay */}
+      <AnimatePresence>
+        {isBrewingLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 bg-[#FEF6F6] z-[9999] flex flex-col items-center justify-center"
+            id="brewing-transition-overlay"
+          >
+            <BrewingLoader 
+              message={brewingMessage} 
+              subMessage={brewingSubMessage} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

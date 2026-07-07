@@ -25,7 +25,7 @@ export interface Order {
   id: string;
   tableNumber: string;
   tokenNumber: number;
-  status: 'pending_approval' | 'received' | 'baking' | 'completed' | 'rejected' | 'Received' | 'Baking' | 'Completed';
+  status: 'pending_approval' | 'received' | 'baking' | 'completed' | 'rejected' | 'Received' | 'Baking' | 'Completed' | 'archived' | 'delivered' | 'Archived' | 'Delivered';
   items: OrderItem[];
   totalAmount: number;
   createdAt: string;

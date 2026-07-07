@@ -15,7 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Order } from '../types';
-import { subscribeOrders, updateOrderStatus } from '../dbService';
+import { subscribeOrders, updateOrderStatus, formatTokenNumber, archiveCompletedOrders } from '../dbService';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const ChefView: React.FC = () => {
@@ -108,6 +108,21 @@ export const ChefView: React.FC = () => {
     } catch (error) {
       console.error("Error updating order status:", error);
       alert("Failed to update status. Please try again.");
+    }
+  };
+
+  const [isClearingTickets, setIsClearingTickets] = useState(false);
+
+  const handleClearCompletedTickets = async () => {
+    if (completedOrders.length === 0) return;
+    setIsClearingTickets(true);
+    try {
+      await archiveCompletedOrders();
+    } catch (error) {
+      console.error("Error archiving completed tickets:", error);
+      alert("Failed to clear completed tickets. Please try again.");
+    } finally {
+      setIsClearingTickets(false);
     }
   };
 
@@ -265,8 +280,8 @@ export const ChefView: React.FC = () => {
           </p>
         </div>
 
-        {/* Multi-device Status Summary */}
-        <div className="flex flex-wrap gap-4">
+        {/* Multi-device Status Summary & Master Controls */}
+        <div className="flex flex-wrap items-center gap-4">
           <div className="bg-[#15100E] px-5 py-3 rounded-2xl border border-[#B13818]/40 flex flex-col justify-center min-w-[120px]">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">ACTIVE QUEUE</span>
             <span className="text-2xl font-black text-[#FDB2B2] font-mono mt-0.5">{activeOrders.length}</span>
@@ -275,6 +290,23 @@ export const ChefView: React.FC = () => {
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#675A58]">COMPLETED TODAY</span>
             <span className="text-2xl font-black text-green-400 font-mono mt-0.5">{completedOrders.length}</span>
           </div>
+          <button
+            onClick={handleClearCompletedTickets}
+            disabled={isClearingTickets || completedOrders.length === 0}
+            className={`px-5 py-4 rounded-2xl border flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all active:scale-95 h-full ${
+              completedOrders.length === 0
+                ? 'bg-[#15100E]/20 text-[#675A58] border-[#675A58]/10 cursor-not-allowed select-none'
+                : 'bg-[#15100E] border-[#B13818]/50 hover:border-[#D97C7A] text-[#FDB2B2] hover:bg-[#B13818]/10 cursor-pointer shadow-lg'
+            }`}
+            title="Archive all finished tickets from this display"
+          >
+            {isClearingTickets ? (
+              <span className="w-3.5 h-3.5 border-2 border-[#D97C7A] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CheckSquare className="w-4 h-4 text-[#D97C7A]" />
+            )}
+            <span>Clear Completed Station Tickets</span>
+          </button>
         </div>
       </div>
 
@@ -328,7 +360,7 @@ export const ChefView: React.FC = () => {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xl font-serif font-black tracking-tight text-white">
-                              Token #{order.tokenNumber}
+                              Token #{formatTokenNumber(order.tokenNumber)}
                             </span>
                             {isBaking && (
                               <span className="text-[9px] font-bold bg-[#D97C7A] text-[#080504] px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
@@ -432,7 +464,7 @@ export const ChefView: React.FC = () => {
                 <div key={order.id} className="bg-[#080504]/60 p-3.5 rounded-xl border border-green-950/50 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="font-serif font-black text-white text-xs">Token #{order.tokenNumber}</span>
+                      <span className="font-serif font-black text-white text-xs">Token #{formatTokenNumber(order.tokenNumber)}</span>
                       <span className="text-[10px] bg-green-950 text-green-400 font-bold px-1.5 py-0.5 rounded">
                         T-{order.tableNumber}
                       </span>

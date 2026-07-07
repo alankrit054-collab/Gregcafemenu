@@ -1,24 +1,28 @@
 import React from 'react';
 import { User, ChefHat, Settings } from 'lucide-react';
+import { MenuByteLogo } from './MenuByteLogo';
 
 interface RoleSwitcherProps {
   currentRole: 'customer' | 'chef' | 'admin';
   onChangeRole: (role: 'customer' | 'chef' | 'admin') => void;
   tableNumber: string;
-  onChangeTable: (table: string) => void;
+  restaurantName?: string;
 }
 
 export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
   currentRole,
   onChangeRole,
   tableNumber,
-  onChangeTable,
+  restaurantName = "Greg's Cafe",
 }) => {
   return (
     <div className="bg-[#080504] text-[#FEF6F6] py-2 px-4 flex flex-wrap items-center justify-between text-xs font-sans border-b border-[#D97C7A]/20 shadow-sm z-50 sticky top-0">
-      <div className="flex items-center gap-2">
-        <span className="font-serif font-bold text-sm text-[#D97C7A] tracking-tight">Greg's Cafe</span>
-        <span className="text-[9px] uppercase tracking-wider text-[#675A58] border border-[#675A58]/30 px-1.5 py-0.5 rounded font-sans">EST. 2026</span>
+      <div className="flex items-center gap-3">
+        <MenuByteLogo className="w-8 h-8 md:w-9 md:h-9" />
+        <div className="flex flex-col">
+          <span className="font-serif font-bold text-sm text-[#D97C7A] tracking-tight leading-none">{restaurantName}</span>
+          <span className="text-[8px] uppercase tracking-wider text-[#675A58] font-sans mt-0.5">EST. 2026</span>
+        </div>
       </div>
       
       <div className="flex items-center gap-3 mt-1 sm:mt-0">
@@ -61,16 +65,9 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
         )}
 
         {currentRole === 'customer' && (
-          <div className="flex items-center gap-1 bg-[#675A58]/20 px-2 py-1 rounded-md border border-[#675A58]/30">
+          <div className="flex items-center gap-1.5 bg-[#675A58]/20 px-2.5 py-1 rounded-md border border-[#675A58]/30 select-none">
             <span className="text-[#675A58]">Table:</span>
-            <input
-              type="text"
-              value={tableNumber}
-              onChange={(e) => onChangeTable(e.target.value)}
-              className="w-10 bg-transparent text-center text-[#FDB2B2] font-bold focus:outline-none"
-              placeholder="4"
-              title="Change table number"
-            />
+            <span className="text-[#FDB2B2] font-bold tracking-wide">{tableNumber}</span>
           </div>
         )}
       </div>
