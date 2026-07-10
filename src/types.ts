@@ -1,17 +1,32 @@
+export interface CustomizationOption {
+  name: string;
+  price: number;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
-  price: number; // in standard currency (e.g. 215, which translates to some value or Rupees/USD/etc. Let's assume standard formatting like $2.15 or ₹215. Let's make it look elegant, e.g. "₹215" or "$215" depending on locale. Since 215 looks like standard currency, let's display it as a direct price like $2.15 or ₹215. We'll use ₹ or $ cleanly, we'll format it as a simple generic symbol or let the user choose, e.g., ₹215 or standard coffee units).
+  price: number; // in standard currency
   category: string; // "hot_coffee" | "iced_coffee" | "cold_brews" | "hot_chocolate" | "tea" | "matcha"
   description: string;
   imageUrl?: string;
   available: boolean;
   dietType?: 'VEG' | 'NON-VEG';
+  isBestseller?: boolean;
+  isVegan?: boolean;
+  isGlutenFree?: boolean;
+  milkOptions?: CustomizationOption[];
+  addOnsOptions?: CustomizationOption[];
 }
 
 export interface CartItem {
   menuItem: MenuItem;
   quantity: number;
+  customization?: {
+    milk?: string;
+    addOns?: string[];
+    addedPrice: number;
+  };
 }
 
 export interface OrderItem {
@@ -19,6 +34,7 @@ export interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  customizationDescription?: string;
 }
 
 export interface Order {
@@ -29,6 +45,7 @@ export interface Order {
   items: OrderItem[];
   totalAmount: number;
   createdAt: string;
+  specialInstructions?: string;
 }
 
 export type CategoryKey = 'all' | 'hot_coffee' | 'iced_coffee' | 'cold_brews' | 'hot_chocolate' | 'tea' | 'matcha';

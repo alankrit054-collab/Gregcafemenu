@@ -103,6 +103,36 @@ export async function seedMenuItemsIfEmpty() {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, MENU_COLLECTION);
     }
+  } else {
+    // If not empty, check for old sandwich photo or legacy image URLs and auto-correct them
+    const batch = writeBatch(db);
+    let needsUpdate = false;
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const initialItem = INITIAL_MENU_ITEMS.find(item => item.id === docSnap.id);
+      if (initialItem) {
+        const oldSandwich = 'photo-1553909489-cd47e0907980';
+        const hasOldSandwich = data.imageUrl && data.imageUrl.includes(oldSandwich);
+        
+        // Align specific cold brew fruit items if they have incorrect default photos
+        const isWatermelonWithDefault = docSnap.id === 'cb-watermelon' && data.imageUrl && data.imageUrl.includes('photo-1461023058943-07fcbe16d735');
+        const isCranberryWithDefault = docSnap.id === 'cb-cranberry' && data.imageUrl && data.imageUrl.includes('photo-1461023058943-07fcbe16d735');
+
+        if (hasOldSandwich || isWatermelonWithDefault || isCranberryWithDefault) {
+          console.log(`Auto-correcting photo for ${docSnap.id} to align with product name: ${initialItem.name}`);
+          batch.update(doc(db, MENU_COLLECTION, docSnap.id), { imageUrl: initialItem.imageUrl });
+          needsUpdate = true;
+        }
+      }
+    });
+    if (needsUpdate) {
+      try {
+        await batch.commit();
+        console.log("Successfully auto-corrected legacy or incorrect menu item images in Firestore!");
+      } catch (error) {
+        console.error("Failed to auto-correct menu item images:", error);
+      }
+    }
   }
 }
 
@@ -139,7 +169,8 @@ export function subscribeMenuItems(callback: (items: MenuItem[]) => void) {
 export async function placeOrder(
   tableNumber: string, 
   cartItems: CartItem[], 
-  totalAmount: number
+  totalAmount: number,
+  specialInstructions?: string
 ): Promise<Order> {
   const ordersRef = collection(db, ORDERS_COLLECTION);
   
@@ -222,12 +253,29 @@ export async function placeOrder(
     console.error("Error reading cafe config for order gate, defaulting to bypass=true:", error);
   }
 
-  const orderItems: OrderItem[] = cartItems.map((item) => ({
-    id: item.menuItem.id,
-    name: item.menuItem.name,
-    price: item.menuItem.price,
-    quantity: item.quantity
-  }));
+  const orderItems: OrderItem[] = cartItems.map((item) => {
+    let desc = '';
+    if (item.customization) {
+      const parts = [];
+      if (item.customization.milk) {
+        parts.push(item.customization.milk);
+      }
+      if (item.customization.addOns && item.customization.addOns.length > 0) {
+        parts.push(...item.customization.addOns);
+      }
+      if (parts.length > 0) {
+        desc = parts.join(', ');
+      }
+    }
+
+    return {
+      id: item.menuItem.id,
+      name: item.menuItem.name,
+      price: item.menuItem.price + (item.customization?.addedPrice || 0),
+      quantity: item.quantity,
+      customizationDescription: desc || undefined
+    };
+  });
 
   const orderId = `order_${Date.now()}`;
   const newOrder: Order = {
@@ -237,7 +285,8 @@ export async function placeOrder(
     status: bypassApprovalGate ? 'received' : 'pending_approval',
     items: orderItems,
     totalAmount: totalAmount,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    specialInstructions: specialInstructions || undefined
   };
 
   try {

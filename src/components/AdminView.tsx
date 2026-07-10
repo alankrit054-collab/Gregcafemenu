@@ -62,6 +62,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
   const [addCategory, setAddCategory] = useState<CategoryKey>('hot_coffee');
   const [addDescription, setAddDescription] = useState('');
   const [addDietType, setAddDietType] = useState<'VEG' | 'NON-VEG'>('VEG');
+  const [addMilkEnabled, setAddMilkEnabled] = useState(true);
+  const [addMilkOptions, setAddMilkOptions] = useState<{ name: string; price: number }[]>([
+    { name: 'Standard', price: 0 },
+    { name: 'Oat Milk', price: 40 },
+    { name: 'Almond Milk', price: 40 }
+  ]);
+  const [addAddOnsEnabled, setAddAddOnsEnabled] = useState(true);
+  const [addAddOnsOptions, setAddAddOnsOptions] = useState<{ name: string; price: number }[]>([
+    { name: 'Extra Espresso Shot', price: 30 },
+    { name: 'Vanilla Syrup', price: 20 }
+  ]);
   const [addError, setAddError] = useState<string | null>(null);
 
   // Form states for EDIT Item
@@ -72,6 +83,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
   const [editDescription, setEditDescription] = useState('');
   const [editAvailable, setEditAvailable] = useState(true);
   const [editDietType, setEditDietType] = useState<'VEG' | 'NON-VEG'>('VEG');
+  const [editMilkEnabled, setEditMilkEnabled] = useState(true);
+  const [editMilkOptions, setEditMilkOptions] = useState<{ name: string; price: number }[]>([]);
+  const [editAddOnsEnabled, setEditAddOnsEnabled] = useState(true);
+  const [editAddOnsOptions, setEditAddOnsOptions] = useState<{ name: string; price: number }[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
   const [lifetimeOrdersCount, setLifetimeOrdersCount] = useState<number>(0);
 
@@ -203,6 +218,49 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     setEditDescription(item.description);
     setEditAvailable(item.available);
     setEditDietType(item.dietType || 'VEG');
+
+    // Milk options initialization
+    if (item.milkOptions !== undefined) {
+      if (item.milkOptions.length > 0) {
+        setEditMilkEnabled(true);
+        setEditMilkOptions(item.milkOptions);
+      } else {
+        setEditMilkEnabled(false);
+        setEditMilkOptions([
+          { name: 'Standard', price: 0 },
+          { name: 'Oat Milk', price: 40 },
+          { name: 'Almond Milk', price: 40 }
+        ]);
+      }
+    } else {
+      setEditMilkEnabled(true);
+      setEditMilkOptions([
+        { name: 'Standard', price: 0 },
+        { name: 'Oat Milk', price: 40 },
+        { name: 'Almond Milk', price: 40 }
+      ]);
+    }
+
+    // Add-on options initialization
+    if (item.addOnsOptions !== undefined) {
+      if (item.addOnsOptions.length > 0) {
+        setEditAddOnsEnabled(true);
+        setEditAddOnsOptions(item.addOnsOptions);
+      } else {
+        setEditAddOnsEnabled(false);
+        setEditAddOnsOptions([
+          { name: 'Extra Espresso Shot', price: 30 },
+          { name: 'Vanilla Syrup', price: 20 }
+        ]);
+      }
+    } else {
+      setEditAddOnsEnabled(true);
+      setEditAddOnsOptions([
+        { name: 'Extra Espresso Shot', price: 30 },
+        { name: 'Vanilla Syrup', price: 20 }
+      ]);
+    }
+
     setEditError(null);
     setIsEditModalOpen(true);
   };
@@ -214,6 +272,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
     setAddCategory('hot_coffee');
     setAddDescription('');
     setAddDietType('VEG');
+    setAddMilkEnabled(true);
+    setAddMilkOptions([
+      { name: 'Standard', price: 0 },
+      { name: 'Oat Milk', price: 40 },
+      { name: 'Almond Milk', price: 40 }
+    ]);
+    setAddAddOnsEnabled(true);
+    setAddAddOnsOptions([
+      { name: 'Extra Espresso Shot', price: 30 },
+      { name: 'Vanilla Syrup', price: 20 }
+    ]);
     setAddError(null);
     setIsAddModalOpen(true);
   };
@@ -238,7 +307,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
         imageUrl: addImageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200',
         category: addCategory === 'all' ? 'hot_coffee' : addCategory,
         description: addDescription || 'Hand-crafted premium coffee delicacy.',
-        dietType: addDietType
+        dietType: addDietType,
+        milkOptions: addMilkEnabled ? addMilkOptions.filter(o => o.name.trim() !== '') : [],
+        addOnsOptions: addAddOnsEnabled ? addAddOnsOptions.filter(o => o.name.trim() !== '') : []
       });
       setIsAddModalOpen(false);
     } catch (err) {
@@ -271,7 +342,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
         category: editCategory === 'all' ? 'hot_coffee' : editCategory,
         description: editDescription,
         available: editAvailable,
-        dietType: editDietType
+        dietType: editDietType,
+        milkOptions: editMilkEnabled ? editMilkOptions.filter(o => o.name.trim() !== '') : [],
+        addOnsOptions: editAddOnsEnabled ? editAddOnsOptions.filter(o => o.name.trim() !== '') : []
       });
       setIsEditModalOpen(false);
       setSelectedItemToEdit(null);
@@ -645,7 +718,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[#080504] border-2 border-[#B13818] rounded-3xl p-6 sm:p-8 max-w-[450px] w-full text-[#FEF6F6] relative z-10 shadow-[0_20px_50px_rgba(177,56,24,0.25)]"
+              className="bg-[#080504] border-2 border-[#B13818] rounded-3xl p-6 sm:p-8 max-w-[480px] w-full max-h-[90vh] overflow-y-auto text-[#FEF6F6] relative z-10 shadow-[0_20px_50px_rgba(177,56,24,0.25)]"
             >
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -773,6 +846,148 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
                   />
                 </div>
 
+                {/* Milk Customizations Section */}
+                <div className="border-t border-[#B13818]/20 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center gap-1.5">
+                      🥛 Milk Options
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAddMilkEnabled(!addMilkEnabled)}
+                      className={`px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                        addMilkEnabled 
+                          ? 'bg-[#B13818] text-white' 
+                          : 'bg-[#15100E] text-[#675A58] border border-[#B13818]/20'
+                      }`}
+                    >
+                      {addMilkEnabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  
+                  {addMilkEnabled && (
+                    <div className="space-y-2">
+                      {addMilkOptions.map((opt, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => {
+                              const updated = [...addMilkOptions];
+                              updated[idx].name = e.target.value;
+                              setAddMilkOptions(updated);
+                            }}
+                            placeholder="e.g. Oat Milk"
+                            className="flex-grow bg-[#15100E] border border-[#B13818]/20 focus:border-[#D97C7A] rounded-lg px-3 py-1.5 text-xs focus:outline-none text-white font-medium"
+                          />
+                          <div className="flex items-center gap-1 bg-[#15100E] border border-[#B13818]/20 rounded-lg px-2 py-1.5 w-24">
+                            <span className="text-[10px] text-[#675A58]">₹</span>
+                            <input
+                              type="number"
+                              value={opt.price}
+                              onChange={(e) => {
+                                const updated = [...addMilkOptions];
+                                updated[idx].price = parseInt(e.target.value, 10) || 0;
+                                setAddMilkOptions(updated);
+                              }}
+                              placeholder="Price"
+                              className="w-full bg-transparent border-none focus:outline-none text-xs text-white font-mono font-bold"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddMilkOptions(addMilkOptions.filter((_, i) => i !== idx));
+                            }}
+                            className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAddMilkOptions([...addMilkOptions, { name: '', price: 0 }])}
+                        className="w-full py-1.5 bg-[#15100E] border border-dashed border-[#B13818]/30 hover:border-[#D97C7A]/50 hover:bg-white/5 rounded-lg text-[10px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Milk Row</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add-ons Customizations Section */}
+                <div className="border-t border-[#B13818]/20 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center gap-1.5">
+                      ☕ Specialty Add-ons
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAddAddOnsEnabled(!addAddOnsEnabled)}
+                      className={`px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                        addAddOnsEnabled 
+                          ? 'bg-[#B13818] text-white' 
+                          : 'bg-[#15100E] text-[#675A58] border border-[#B13818]/20'
+                      }`}
+                    >
+                      {addAddOnsEnabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  
+                  {addAddOnsEnabled && (
+                    <div className="space-y-2">
+                      {addAddOnsOptions.map((opt, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => {
+                              const updated = [...addAddOnsOptions];
+                              updated[idx].name = e.target.value;
+                              setAddAddOnsOptions(updated);
+                            }}
+                            placeholder="e.g. Vanilla Syrup"
+                            className="flex-grow bg-[#15100E] border border-[#B13818]/20 focus:border-[#D97C7A] rounded-lg px-3 py-1.5 text-xs focus:outline-none text-white font-medium"
+                          />
+                          <div className="flex items-center gap-1 bg-[#15100E] border border-[#B13818]/20 rounded-lg px-2 py-1.5 w-24">
+                            <span className="text-[10px] text-[#675A58]">₹</span>
+                            <input
+                              type="number"
+                              value={opt.price}
+                              onChange={(e) => {
+                                const updated = [...addAddOnsOptions];
+                                updated[idx].price = parseInt(e.target.value, 10) || 0;
+                                setAddAddOnsOptions(updated);
+                              }}
+                              placeholder="Price"
+                              className="w-full bg-transparent border-none focus:outline-none text-xs text-white font-mono font-bold"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddAddOnsOptions(addAddOnsOptions.filter((_, i) => i !== idx));
+                            }}
+                            className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAddAddOnsOptions([...addAddOnsOptions, { name: '', price: 0 }])}
+                        className="w-full py-1.5 bg-[#15100E] border border-dashed border-[#B13818]/30 hover:border-[#D97C7A]/50 hover:bg-white/5 rounded-lg text-[10px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Add-on Row</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Modal Footer Controls */}
                 <div className="flex gap-3 pt-3">
                   <button
@@ -814,7 +1029,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[#080504] border-2 border-[#B13818] rounded-3xl p-6 sm:p-8 max-w-[450px] w-full text-[#FEF6F6] relative z-10 shadow-[0_20px_50px_rgba(177,56,24,0.25)]"
+              className="bg-[#080504] border-2 border-[#B13818] rounded-3xl p-6 sm:p-8 max-w-[480px] w-full max-h-[90vh] overflow-y-auto text-[#FEF6F6] relative z-10 shadow-[0_20px_50px_rgba(177,56,24,0.25)]"
             >
               <button
                 onClick={() => {
@@ -939,6 +1154,148 @@ export const AdminView: React.FC<AdminViewProps> = ({ menuItems, onSwitchToChef 
                     rows={3}
                     className="w-full bg-[#15100E] border border-[#B13818]/30 focus:border-[#D97C7A] rounded-xl px-4 py-2.5 text-sm focus:outline-none placeholder-[#675A58]/60 text-white font-medium"
                   />
+                </div>
+
+                {/* Milk Customizations Section */}
+                <div className="border-t border-[#B13818]/20 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center gap-1.5">
+                      🥛 Milk Options
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditMilkEnabled(!editMilkEnabled)}
+                      className={`px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                        editMilkEnabled 
+                          ? 'bg-[#B13818] text-white' 
+                          : 'bg-[#15100E] text-[#675A58] border border-[#B13818]/20'
+                      }`}
+                    >
+                      {editMilkEnabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  
+                  {editMilkEnabled && (
+                    <div className="space-y-2">
+                      {editMilkOptions.map((opt, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => {
+                              const updated = [...editMilkOptions];
+                              updated[idx].name = e.target.value;
+                              setEditMilkOptions(updated);
+                            }}
+                            placeholder="e.g. Oat Milk"
+                            className="flex-grow bg-[#15100E] border border-[#B13818]/20 focus:border-[#D97C7A] rounded-lg px-3 py-1.5 text-xs focus:outline-none text-white font-medium"
+                          />
+                          <div className="flex items-center gap-1 bg-[#15100E] border border-[#B13818]/20 rounded-lg px-2 py-1.5 w-24">
+                            <span className="text-[10px] text-[#675A58]">₹</span>
+                            <input
+                              type="number"
+                              value={opt.price}
+                              onChange={(e) => {
+                                const updated = [...editMilkOptions];
+                                updated[idx].price = parseInt(e.target.value, 10) || 0;
+                                setEditMilkOptions(updated);
+                              }}
+                              placeholder="Price"
+                              className="w-full bg-transparent border-none focus:outline-none text-xs text-white font-mono font-bold"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditMilkOptions(editMilkOptions.filter((_, i) => i !== idx));
+                            }}
+                            className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setEditMilkOptions([...editMilkOptions, { name: '', price: 0 }])}
+                        className="w-full py-1.5 bg-[#15100E] border border-dashed border-[#B13818]/30 hover:border-[#D97C7A]/50 hover:bg-white/5 rounded-lg text-[10px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Milk Row</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add-ons Customizations Section */}
+                <div className="border-t border-[#B13818]/20 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center gap-1.5">
+                      ☕ Specialty Add-ons
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditAddOnsEnabled(!editAddOnsEnabled)}
+                      className={`px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                        editAddOnsEnabled 
+                          ? 'bg-[#B13818] text-white' 
+                          : 'bg-[#15100E] text-[#675A58] border border-[#B13818]/20'
+                      }`}
+                    >
+                      {editAddOnsEnabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  
+                  {editAddOnsEnabled && (
+                    <div className="space-y-2">
+                      {editAddOnsOptions.map((opt, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => {
+                              const updated = [...editAddOnsOptions];
+                              updated[idx].name = e.target.value;
+                              setEditAddOnsOptions(updated);
+                            }}
+                            placeholder="e.g. Vanilla Syrup"
+                            className="flex-grow bg-[#15100E] border border-[#B13818]/20 focus:border-[#D97C7A] rounded-lg px-3 py-1.5 text-xs focus:outline-none text-white font-medium"
+                          />
+                          <div className="flex items-center gap-1 bg-[#15100E] border border-[#B13818]/20 rounded-lg px-2 py-1.5 w-24">
+                            <span className="text-[10px] text-[#675A58]">₹</span>
+                            <input
+                              type="number"
+                              value={opt.price}
+                              onChange={(e) => {
+                                const updated = [...editAddOnsOptions];
+                                updated[idx].price = parseInt(e.target.value, 10) || 0;
+                                setEditAddOnsOptions(updated);
+                              }}
+                              placeholder="Price"
+                              className="w-full bg-transparent border-none focus:outline-none text-xs text-white font-mono font-bold"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditAddOnsOptions(editAddOnsOptions.filter((_, i) => i !== idx));
+                            }}
+                            className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setEditAddOnsOptions([...editAddOnsOptions, { name: '', price: 0 }])}
+                        className="w-full py-1.5 bg-[#15100E] border border-dashed border-[#B13818]/30 hover:border-[#D97C7A]/50 hover:bg-white/5 rounded-lg text-[10px] font-bold text-[#FDB2B2] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Add-on Row</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* In Stock Availability Toggle */}

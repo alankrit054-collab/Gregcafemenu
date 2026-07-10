@@ -1,6 +1,5 @@
 import React from 'react';
 import { User, ChefHat, Settings } from 'lucide-react';
-import { MenuByteLogo } from './MenuByteLogo';
 
 interface RoleSwitcherProps {
   currentRole: 'customer' | 'chef' | 'admin';
@@ -18,7 +17,6 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
   return (
     <div className="bg-[#080504] text-[#FEF6F6] py-2 px-4 flex flex-wrap items-center justify-between text-xs font-sans border-b border-[#D97C7A]/20 shadow-sm z-50 sticky top-0">
       <div className="flex items-center gap-3">
-        <MenuByteLogo className="w-8 h-8 md:w-9 md:h-9" />
         <div className="flex flex-col">
           <span className="font-serif font-bold text-sm text-[#D97C7A] tracking-tight leading-none">{restaurantName}</span>
           <span className="text-[8px] uppercase tracking-wider text-[#675A58] font-sans mt-0.5">EST. 2026</span>

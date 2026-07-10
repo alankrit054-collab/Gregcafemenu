@@ -9,7 +9,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Rich, intense, and full-bodied double shot of espresso.',
     imageUrl: 'https://images.unsplash.com/photo-1510707513156-46c24df93b5e?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true
   },
   {
     id: 'hc-cortado',
@@ -18,7 +20,8 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Espresso cut with an equal amount of warm, silky milk.',
     imageUrl: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isGlutenFree: true
   },
   {
     id: 'hc-filter',
@@ -27,7 +30,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Traditional slow-dripped single origin coffee.',
     imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true
   },
   {
     id: 'hc-frenchpress',
@@ -36,7 +41,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Robust, full-flavor infusion brew served fresh.',
     imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true
   },
   {
     id: 'hc-americano',
@@ -45,7 +52,10 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Double espresso shots diluted with clean hot water.',
     imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true,
+    isBestseller: true
   },
   {
     id: 'hc-cappuccino',
@@ -54,7 +64,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Equal parts espresso, steamed milk, and airy foam.',
     imageUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isBestseller: true,
+    isGlutenFree: true
   },
   {
     id: 'hc-latte',
@@ -63,7 +75,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'hot_coffee',
     description: 'Rich espresso balanced with velvety steamed milk.',
     imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isGlutenFree: true,
+    isBestseller: true
   },
   {
     id: 'hc-spanishlatte',
@@ -127,7 +141,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     price: 265,
     category: 'iced_coffee',
     description: 'Zesty fresh orange juice layered with a shot of espresso.',
-    imageUrl: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=150&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=150&auto=format&fit=crop&q=60',
     available: true
   },
   {
@@ -136,7 +150,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     price: 289,
     category: 'iced_coffee',
     description: 'Chilled espresso and milk with a thick layer of cold foam.',
-    imageUrl: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=150&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=150&auto=format&fit=crop&q=60',
     available: true
   },
   {
@@ -300,7 +314,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     price: 279,
     category: 'cold_brews',
     description: 'Refreshing classic cold brew layered with zesty fresh citrus.',
-    imageUrl: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=150&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=150&auto=format&fit=crop&q=60',
     available: true
   },
   {
@@ -309,7 +323,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     price: 299,
     category: 'cold_brews',
     description: 'Unexpectedly crisp and refreshing combination of fruit and coffee.',
-    imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=150&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=150&auto=format&fit=crop&q=60',
     available: true
   },
   {
@@ -318,7 +332,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     price: 305,
     category: 'cold_brews',
     description: 'Tangy and sweet cranberry juice shaken with cold brew coffee.',
-    imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=150&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=150&auto=format&fit=crop&q=60',
     available: true
   },
 
@@ -413,7 +427,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'tea',
     description: 'A vibrant herbal blend of sweet hibiscus flowers and fresh garden mint.',
     imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true
   },
   {
     id: 't-gregs',
@@ -433,7 +449,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'matcha',
     description: 'Premium grade Japanese stone-ground matcha with steamed milk.',
     imageUrl: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isBestseller: true,
+    isGlutenFree: true
   },
   {
     id: 'm-icedcranberry',
@@ -442,7 +460,9 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: 'matcha',
     description: 'A stunning layered drink of tart cranberry juice and vibrant green matcha.',
     imageUrl: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=150&auto=format&fit=crop&q=60',
-    available: true
+    available: true,
+    isVegan: true,
+    isGlutenFree: true
   },
   {
     id: 'm-vanilla',

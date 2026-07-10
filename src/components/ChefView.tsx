@@ -393,10 +393,22 @@ export const ChefView: React.FC = () => {
                                 <span className="text-sm font-bold text-[#FEF6F6] block leading-tight">
                                   {item.name}
                                 </span>
+                                {item.customizationDescription && (
+                                  <span className="text-xs text-[#D97C7A] block font-medium mt-0.5 italic">
+                                    ↳ {item.customizationDescription}
+                                  </span>
+                                )}
                               </div>
                             </li>
                           ))}
                         </ul>
+
+                        {order.specialInstructions && (
+                          <div className="mt-4 p-2.5 bg-amber-950/25 border border-amber-900/40 rounded-xl text-xs text-amber-300">
+                            <span className="font-bold uppercase text-[9px] tracking-wider block text-amber-400">Barista Instructions:</span>
+                            <p className="mt-0.5 font-sans leading-relaxed">{order.specialInstructions}</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Ticket Footer (Live counter & actions) */}
@@ -469,12 +481,24 @@ export const ChefView: React.FC = () => {
                         T-{order.tableNumber}
                       </span>
                     </div>
-                    <div className="text-[11px] text-[#675A58] font-sans space-y-0.5">
+                    <div className="text-[11px] text-[#675A58] font-sans space-y-1">
                       {order.items.map((item, idx) => (
-                        <div key={idx} className="truncate">
-                          <span className="font-bold text-[#FDB2B2] mr-1">{item.quantity}x</span> {item.name}
+                        <div key={idx} className="mb-0.5">
+                          <div className="truncate">
+                            <span className="font-bold text-[#FDB2B2] mr-1">{item.quantity}x</span> {item.name}
+                          </div>
+                          {item.customizationDescription && (
+                            <span className="text-[10px] text-[#D97C7A] block italic pl-3">
+                              ↳ {item.customizationDescription}
+                            </span>
+                          )}
                         </div>
                       ))}
+                      {order.specialInstructions && (
+                        <div className="text-[10px] text-amber-400/80 italic mt-1.5 pl-1.5 border-l border-amber-800/60 line-clamp-1">
+                          * {order.specialInstructions}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-between items-center mt-3 pt-2 border-t border-[#B13818]/10 text-[9px] text-[#675A58] font-mono">

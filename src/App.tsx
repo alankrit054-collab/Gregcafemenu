@@ -47,12 +47,6 @@ export default function App() {
   const [tableNumber, setTableNumber] = useState('4');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showSplash, setShowSplash] = useState(() => {
-    // Check if splash was already shown in this tab session to avoid annoying repetitiveness
-    const shown = sessionStorage.getItem('menubyte_splash_shown');
-    return !shown;
-  });
 
   const [restaurantName, setRestaurantName] = useState(() => {
     const rawSlug = getSlugFromUrl();
@@ -116,15 +110,11 @@ export default function App() {
       return;
     }
     
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setRole(newRole);
-      // Dynamically update URL parameter for visual integrity and deep linking
-      const params = new URLSearchParams(window.location.search);
-      params.set('role', newRole);
-      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-      setIsTransitioning(false);
-    }, 1700);
+    setRole(newRole);
+    // Dynamically update URL parameter for visual integrity and deep linking
+    const params = new URLSearchParams(window.location.search);
+    params.set('role', newRole);
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
   };
 
   const handleTableChange = (newTable: string) => {
@@ -139,36 +129,19 @@ export default function App() {
     setIsAdminAuthorized(true);
     setIsAdminPinOpen(false);
     
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setRole('admin');
-      // Update URL to reflect Admin role
-      const params = new URLSearchParams(window.location.search);
-      params.set('role', 'admin');
-      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-      setIsTransitioning(false);
-    }, 1700);
+    setRole('admin');
+    // Update URL to reflect Admin role
+    const params = new URLSearchParams(window.location.search);
+    params.set('role', 'admin');
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
   };
 
-  if (showSplash) {
-    return (
-      <QRIntroSplash
-        restaurantName={restaurantName}
-        onComplete={() => {
-          setShowSplash(false);
-          sessionStorage.setItem('menubyte_splash_shown', 'true');
-        }}
-      />
-    );
-  }
-
-  if (loading || isTransitioning) {
+  if (loading) {
     return (
       <div className="bg-[#FEF6F6] min-h-screen flex flex-col items-center justify-center p-4">
-        <BrewingLoader 
-          message={loading ? `Brewing ${restaurantName}...` : "Brewing Your Station..."}
-          subMessage={loading ? "Connecting to Firestore Live Sync" : "Polishing the counters & cups"}
-        />
+        <h2 className="text-lg font-serif font-bold text-[#B13818] tracking-tight">
+          Loading {restaurantName}...
+        </h2>
       </div>
     );
   }
